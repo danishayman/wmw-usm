@@ -1,9 +1,13 @@
 "use client";
-import NewMap from "@/components/ui/NewMap";
 import { Droplet } from "lucide-react";
 import { useState } from 'react';
 import { Building } from '@/lib/data';
 import NewSidebar from "@/components/ui/NewSidebar";
+import dynamic from "next/dynamic";
+
+const NewMap = dynamic(() => import("@/components/ui/NewMap"), {
+  ssr: false,
+});
 
 export default function TestPage() {
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);

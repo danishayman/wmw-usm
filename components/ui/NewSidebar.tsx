@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from 'react';
-import L from 'leaflet';
+import { useEffect, useRef } from 'react';
 import { MapPin, X, Navigation } from 'lucide-react';
 import { Building } from '@/lib/data';
 import { MaintenanceBadge, ColdWaterBadge } from './StatusBadge';
@@ -17,10 +16,30 @@ export default function NewSidebar({ building, onClose }: SidebarProps) {
     // Stop map interference when interacting with the sidebar
     useEffect(() => {
         const container = sidebarRef.current;
-        if (container) {
-            L.DomEvent.disableScrollPropagation(container);
-            L.DomEvent.disableClickPropagation(container);
+        if (!container) return;
+
+        const stopPropagation = (event: Event) => event.stopPropagation();
+        const events = [
+            'click',
+            'dblclick',
+            'mousedown',
+            'mouseup',
+            'touchstart',
+            'touchend',
+            'pointerdown',
+            'pointerup',
+            'wheel',
+        ] as const;
+
+        for (const eventName of events) {
+            container.addEventListener(eventName, stopPropagation, true);
         }
+
+        return () => {
+            for (const eventName of events) {
+                container.removeEventListener(eventName, stopPropagation, true);
+            }
+        };
     }, [building]);
 
     // Desktop Empty State
