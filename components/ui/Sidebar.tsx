@@ -338,11 +338,7 @@ export default function Sidebar({ building, onClose }: SidebarProps) {
                   <MapPin className="h-3 w-3" />
                   Selected Building
                 </p>
-                <h2
-                  className={`font-display leading-tight font-bold text-[#301a55] ${
-                    isPeek ? "text-[1.7rem]" : "text-2xl"
-                  }`}
-                >
+                <h2 className="font-display text-[1.7rem] leading-tight font-bold text-[#301a55]">
                   {building.name}
                 </h2>
                 <p className="mt-1.5 text-sm font-semibold text-[#4a3a66]">
