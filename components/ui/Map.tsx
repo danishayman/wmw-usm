@@ -66,7 +66,7 @@ export default function Map({
   selectedBuildingId,
 }: MapProps) {
   return (
-    <div className="h-dvh w-full">
+    <div className="h-full min-h-[100svh] w-full">
       <MapContainer
         center={USM_CENTER}
         zoom={17}
