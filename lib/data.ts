@@ -1,6 +1,5 @@
 import "server-only";
 
-import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Building, ColdWaterStatus, MaintenanceStatus } from "@/lib/types";
 
@@ -41,7 +40,7 @@ function toMaintenanceStatus(value: string): MaintenanceStatus {
   return "Broken";
 }
 
-export const getBuildings = cache(async (): Promise<Building[]> => {
+export async function getBuildings(): Promise<Building[]> {
   const supabase = createSupabaseServerClient();
 
   const { data, error } = await supabase
@@ -71,4 +70,4 @@ export const getBuildings = cache(async (): Promise<Building[]> => {
       maintenanceStatus: toMaintenanceStatus(dispenser.maintenance_status),
     })),
   }));
-});
+}
