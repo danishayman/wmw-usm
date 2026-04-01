@@ -19,6 +19,8 @@ const USM_BOUNDS: LatLngBoundsExpression = [
 ];
 const MAP_MIN_ZOOM = 17;
 const MAP_MAX_ZOOM = 19;
+const MOBILE_BREAKPOINT_PX = 768;
+const MOBILE_FOCUS_Y_RATIO = 0.4;
 
 function MapController({
   buildings,
@@ -33,7 +35,21 @@ function MapController({
     if (selectedBuildingId) {
       const selected = buildings.find((building) => building.id === selectedBuildingId);
       if (selected) {
-        map.flyTo([selected.latitude, selected.longitude], MAP_MAX_ZOOM, { duration: 1.5 });
+        const targetPosition: [number, number] = [selected.latitude, selected.longitude];
+
+        if (window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px)`).matches) {
+          const mapSize = map.getSize();
+          const markerPoint = map.project(targetPosition, MAP_MAX_ZOOM);
+          const targetScreenY = mapSize.y * MOBILE_FOCUS_Y_RATIO;
+          const yOffsetFromCenter = targetScreenY - mapSize.y / 2;
+          const adjustedCenterPoint = markerPoint.subtract([0, yOffsetFromCenter]);
+          const adjustedCenter = map.unproject(adjustedCenterPoint, MAP_MAX_ZOOM);
+
+          map.flyTo(adjustedCenter, MAP_MAX_ZOOM, { duration: 1.5 });
+          return;
+        }
+
+        map.flyTo(targetPosition, MAP_MAX_ZOOM, { duration: 1.5 });
         return;
       }
     }
