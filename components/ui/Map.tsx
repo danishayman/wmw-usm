@@ -79,7 +79,7 @@ export default function Map({
         maxBounds={USM_BOUNDS}
         maxBoundsViscosity={1.0}
       >
-        <TileLayer url="new_tiles/{z}/{x}/{y}.png" maxZoom={MAP_MAX_ZOOM} />
+        <TileLayer url="/new_tiles/{z}/{x}/{y}.png" maxZoom={MAP_MAX_ZOOM} />
         <ZoomControl position="bottomright" />
         <MapController buildings={buildings} selectedBuildingId={selectedBuildingId} />
         {buildings.map((building) => (

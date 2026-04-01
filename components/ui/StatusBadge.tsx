@@ -34,6 +34,13 @@ export function MaintenanceBadge({ status }: MaintenanceBadgeProps) {
           <span>Broken</span>
         </div>
       );
+    case "Unknown":
+      return (
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-[#d6cde3] bg-white px-2.5 py-1 text-xs font-semibold text-[#4f4560]">
+          <HelpCircle className="w-3.5 h-3.5" />
+          <span>Unknown</span>
+        </div>
+      );
   }
 }
 

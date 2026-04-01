@@ -83,6 +83,35 @@ describe("getBuildings", () => {
     expect(client.from).toHaveBeenCalledWith("buildings");
   });
 
+  it("maps unexpected maintenance status values to Unknown", async () => {
+    const client = makeClient({
+      data: [
+        {
+          id: "bld-2",
+          name: "Library",
+          latitude: 5.36,
+          longitude: 100.31,
+          dispensers: [
+            {
+              building_id: "bld-2",
+              dispenser_id: "dsp-2",
+              location_description: "Ground Floor",
+              brand: "Coway",
+              cold_water_status: "Available",
+              maintenance_status: "Out of service",
+            },
+          ],
+        },
+      ],
+      error: null,
+    });
+    createClientMock.mockReturnValue(client as never);
+
+    const buildings = await getBuildings();
+
+    expect(buildings[0]?.dispensers[0]?.maintenanceStatus).toBe("Unknown");
+  });
+
   it("logs structured details and throws a user-safe error when query fails", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const client = makeClient({

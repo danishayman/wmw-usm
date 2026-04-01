@@ -36,12 +36,13 @@ function toMaintenanceStatus(value: string): MaintenanceStatus {
   if (
     value === "Operational" ||
     value === "Under Maintenance" ||
-    value === "Broken"
+    value === "Broken" ||
+    value === "Unknown"
   ) {
     return value;
   }
 
-  return "Broken";
+  return "Unknown";
 }
 
 export async function getBuildings(): Promise<Building[]> {

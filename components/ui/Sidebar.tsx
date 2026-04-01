@@ -332,7 +332,7 @@ export default function Sidebar({ building, onClose }: SidebarProps) {
             onKeyDown={onHandleKeyDown}
           >
             <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-[#d9cfee]" />
-            <div className="flex items-start gap-3">
+            <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-[#d8cdea] bg-white px-2.5 py-1 text-[10px] font-bold tracking-[0.18em] text-[#5a2c93] uppercase">
                   <MapPin className="h-3 w-3" />
@@ -352,6 +352,15 @@ export default function Sidebar({ building, onClose }: SidebarProps) {
                   <DirectionsButton building={building} compact />
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={onClose}
+                onPointerDown={(event) => event.stopPropagation()}
+                aria-label="Close building details sheet"
+                className="shrink-0 rounded-full border border-[#d8cdea] bg-white p-2 text-[#4a3a66] transition hover:border-[#9c7ccc] hover:text-[#5a2c93] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)] active:scale-95"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
           </div>
 
