@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { PostgrestError } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Building, ColdWaterStatus, MaintenanceStatus } from "@/lib/types";
 
@@ -19,6 +20,9 @@ type BuildingRow = {
   longitude: number;
   dispensers: DispenserRow[] | null;
 };
+
+export const BUILDINGS_LOAD_ERROR_MESSAGE =
+  "Unable to load water refill data right now.";
 
 function toColdWaterStatus(value: string): ColdWaterStatus {
   if (value === "Available" || value === "Unavailable" || value === "Unknown") {
@@ -51,7 +55,16 @@ export async function getBuildings(): Promise<Building[]> {
     .order("name");
 
   if (error) {
-    throw new Error(`Failed to load buildings from Supabase: ${error.message}`);
+    const typedError = error as PostgrestError | null;
+    console.error("[wmw-usm]", {
+      area: "data",
+      operation: "get_buildings_query",
+      message: typedError?.message ?? "Unknown Supabase error",
+      code: typedError?.code ?? null,
+      hint: typedError?.hint ?? null,
+      details: typedError?.details ?? null,
+    });
+    throw new Error(BUILDINGS_LOAD_ERROR_MESSAGE);
   }
 
   const rows = (data ?? []) as BuildingRow[];
