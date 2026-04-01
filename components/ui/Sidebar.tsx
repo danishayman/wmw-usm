@@ -9,7 +9,7 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-export default function NewSidebar({ building, onClose }: SidebarProps) {
+export default function Sidebar({ building, onClose }: SidebarProps) {
   if (!building) {
     return null;
   }

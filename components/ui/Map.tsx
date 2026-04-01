@@ -6,7 +6,7 @@ import { DivIcon, type LatLngBoundsExpression } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Building } from "@/lib/types";
 
-interface NewMapProps {
+interface MapProps {
   buildings: Building[];
   onBuildingSelect: (building: Building) => void;
   selectedBuildingId: string | null;
@@ -60,11 +60,11 @@ function createIcon(isSelected: boolean) {
   });
 }
 
-export default function NewMap({
+export default function Map({
   buildings,
   onBuildingSelect,
   selectedBuildingId,
-}: NewMapProps) {
+}: MapProps) {
   return (
     <div className="h-dvh w-full">
       <MapContainer
