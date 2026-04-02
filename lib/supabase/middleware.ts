@@ -5,6 +5,18 @@ import { getSupabaseServerEnv } from "@/lib/supabase/env";
 const ADMIN_LOGIN_PATH = "/admin/login";
 const ADMIN_HOME_PATH = "/admin";
 
+function copyResponseCookies(source: NextResponse, target: NextResponse) {
+  source.cookies.getAll().forEach((cookie) => {
+    target.cookies.set(cookie);
+  });
+}
+
+function redirectWithSessionCookies(url: URL, response: NextResponse) {
+  const redirectResponse = NextResponse.redirect(url);
+  copyResponseCookies(response, redirectResponse);
+  return redirectResponse;
+}
+
 export async function updateSession(request: NextRequest) {
   const { url, anonKey } = getSupabaseServerEnv();
 
@@ -37,14 +49,14 @@ export async function updateSession(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = ADMIN_LOGIN_PATH;
     redirectUrl.searchParams.set("next", request.nextUrl.pathname);
-    return NextResponse.redirect(redirectUrl);
+    return redirectWithSessionCookies(redirectUrl, response);
   }
 
   if (user && isLoginRoute) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = ADMIN_HOME_PATH;
     redirectUrl.searchParams.delete("next");
-    return NextResponse.redirect(redirectUrl);
+    return redirectWithSessionCookies(redirectUrl, response);
   }
 
   return response;
