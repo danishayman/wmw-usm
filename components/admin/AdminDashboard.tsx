@@ -50,6 +50,8 @@ const DISCARD_CHANGES_MESSAGE =
   "Discard unsaved dispenser changes? Your draft edits will be lost.";
 const DISCARD_NEW_BUILDING_DRAFT_MESSAGE =
   "Discard unsaved new building draft? Your building name and pinned coordinates will be lost.";
+const DEFAULT_MUTATION_ERROR_MESSAGE =
+  "Something went wrong while saving. Please try again.";
 
 function initialFields(): DispenserMutationFields {
   return {
@@ -165,16 +167,25 @@ export default function AdminDashboard({
   ) => {
     startTransition(() => {
       void (async () => {
-        const result = await operation();
+        try {
+          const result = await operation();
 
-        if (!result.ok) {
-          setMessage("error", result.message);
-          return;
+          if (!result.ok) {
+            setMessage("error", result.message);
+            return;
+          }
+
+          setMessage("success", result.message);
+          onSuccess?.();
+          router.refresh();
+        } catch (error) {
+          console.error("[wmw-usm]", {
+            area: "admin_dashboard",
+            operation: "run_mutation",
+            message: error instanceof Error ? error.message : "Unknown error",
+          });
+          setMessage("error", DEFAULT_MUTATION_ERROR_MESSAGE);
         }
-
-        setMessage("success", result.message);
-        onSuccess?.();
-        router.refresh();
       })();
     });
   };
@@ -388,24 +399,33 @@ export default function AdminDashboard({
 
     startTransition(() => {
       void (async () => {
-        const result = await createBuilding({
-          name,
-          latitude: pendingPin.latitude,
-          longitude: pendingPin.longitude,
-        });
+        try {
+          const result = await createBuilding({
+            name,
+            latitude: pendingPin.latitude,
+            longitude: pendingPin.longitude,
+          });
 
-        if (!result.ok) {
-          setMessage("error", result.message);
-          return;
-        }
+          if (!result.ok) {
+            setMessage("error", result.message);
+            return;
+          }
 
-        setMessage("success", result.message);
-        if (result.buildingId) {
-          setSelectedBuildingId(result.buildingId);
+          setMessage("success", result.message);
+          if (result.buildingId) {
+            setSelectedBuildingId(result.buildingId);
+          }
+          clearNewBuildingDraft();
+          setPinWorkflow("edit-existing");
+          router.refresh();
+        } catch (error) {
+          console.error("[wmw-usm]", {
+            area: "admin_dashboard",
+            operation: "create_building_from_pin",
+            message: error instanceof Error ? error.message : "Unknown error",
+          });
+          setMessage("error", DEFAULT_MUTATION_ERROR_MESSAGE);
         }
-        clearNewBuildingDraft();
-        setPinWorkflow("edit-existing");
-        router.refresh();
       })();
     });
   };

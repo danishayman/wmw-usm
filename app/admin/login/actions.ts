@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { resolveAdminNextPath } from "@/lib/admin/redirect";
 import { createSupabaseServerActionClient } from "@/lib/supabase/auth-server";
 
 export type LoginState = {
@@ -16,6 +17,10 @@ export async function signInWithEmailPassword(
     .trim()
     .toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const nextValue = formData.get("next");
+  const nextPath = resolveAdminNextPath(
+    typeof nextValue === "string" ? nextValue : undefined
+  );
 
   if (!email || !password) {
     return {
@@ -34,5 +39,5 @@ export async function signInWithEmailPassword(
     };
   }
 
-  redirect("/admin");
+  redirect(nextPath);
 }

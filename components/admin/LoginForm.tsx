@@ -11,7 +11,11 @@ const INITIAL_LOGIN_STATE: LoginState = {
   message: "",
 };
 
-export default function LoginForm() {
+interface LoginFormProps {
+  nextPath?: string;
+}
+
+export default function LoginForm({ nextPath = "/admin" }: LoginFormProps) {
   const [state, action, pending] = useActionState(
     signInWithEmailPassword,
     INITIAL_LOGIN_STATE
@@ -19,6 +23,7 @@ export default function LoginForm() {
 
   return (
     <form action={action} className="space-y-4 rounded-2xl border bg-white p-6 shadow-sm">
+      <input type="hidden" name="next" value={nextPath} />
       <div className="space-y-1">
         <label htmlFor="email" className="text-sm font-semibold text-[#301a55]">
           Email

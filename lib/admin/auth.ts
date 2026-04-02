@@ -4,25 +4,27 @@ type UserLike = {
   email?: string | null;
 };
 
-type AdminAllowlistQuery = {
-  select: (columns: string) => {
-    eq: (column: string, value: string) => {
-      maybeSingle: () => Promise<{
-        data: { email: string } | null;
-        error: { message: string } | null;
-      }>;
-    };
-  };
-};
+type ErrorLike = {
+  message: string;
+} | null;
 
-type SupabaseAuthClient = {
+export type AdminSupabaseClient = {
   auth: {
     getUser: () => Promise<{
       data: { user: UserLike | null };
-      error: { message: string } | null;
+      error: ErrorLike;
     }>;
   };
-  from: (table: string) => AdminAllowlistQuery;
+  from: (table: string) => {
+    select: (columns: string) => {
+      eq: (column: string, value: string) => {
+        maybeSingle: () => Promise<{
+          data: unknown;
+          error: ErrorLike;
+        }>;
+      };
+    };
+  };
 };
 
 export type AdminGuardResult =
@@ -42,7 +44,7 @@ export function getSessionEmail(user: UserLike | null): string | null {
 }
 
 export async function isAdminForEmail(
-  supabase: Pick<SupabaseAuthClient, "from">,
+  supabase: Pick<AdminSupabaseClient, "from">,
   email: string
 ): Promise<boolean> {
   const normalizedEmail = normalizeEmail(email);
@@ -62,11 +64,20 @@ export async function isAdminForEmail(
     return false;
   }
 
-  return Boolean(data?.email);
+  if (!data || typeof data !== "object") {
+    return false;
+  }
+
+  const row = data as { email?: unknown };
+  if (typeof row.email !== "string") {
+    return false;
+  }
+
+  return normalizeEmail(row.email) === normalizedEmail;
 }
 
 export async function requireAdminUser(
-  supabase: SupabaseAuthClient
+  supabase: AdminSupabaseClient
 ): Promise<AdminGuardResult> {
   const {
     data: { user },

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import AdminDashboard from "@/components/admin/AdminDashboard";
 import { signOutAdmin } from "@/app/admin/actions";
 import { requireAdminUser } from "@/lib/admin/auth";
+import { toAdminSupabaseClient } from "@/lib/admin/supabase-adapter";
 import { getBuildings } from "@/lib/data";
 import { createSupabaseServerAuthClient } from "@/lib/supabase/auth-server";
 
@@ -30,9 +31,7 @@ function UnauthorizedState() {
 
 export default async function AdminPage() {
   const supabase = await createSupabaseServerAuthClient();
-  const guard = await requireAdminUser(
-    supabase as unknown as Parameters<typeof requireAdminUser>[0]
-  );
+  const guard = await requireAdminUser(toAdminSupabaseClient(supabase));
 
   if (!guard.ok) {
     if (guard.reason === "unauthenticated") {

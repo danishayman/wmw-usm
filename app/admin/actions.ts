@@ -20,9 +20,12 @@ import {
   validateDispenserId,
   validatePinPayload,
 } from "@/lib/admin/payload";
+import { toAdminSupabaseClient } from "@/lib/admin/supabase-adapter";
 import { createSupabaseServerActionClient } from "@/lib/supabase/auth-server";
 
 const AUTH_REQUIRED_MESSAGE = "You must be an admin to perform this action.";
+const DISPENSER_NOT_FOUND_MESSAGE = "Dispenser could not be found.";
+const BUILDING_NOT_FOUND_MESSAGE = "Building could not be found.";
 
 function success(message: string): MutationResult {
   return { ok: true, message };
@@ -34,9 +37,7 @@ function failure(message: string): MutationResult {
 
 async function ensureAdmin() {
   const supabase = await createSupabaseServerActionClient();
-  const guard = await requireAdminUser(
-    supabase as unknown as Parameters<typeof requireAdminUser>[0]
-  );
+  const guard = await requireAdminUser(toAdminSupabaseClient(supabase));
   return { supabase, guard };
 }
 
@@ -118,11 +119,12 @@ export async function updateDispenser(
     return failure(AUTH_REQUIRED_MESSAGE);
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("dispensers")
     .update(built.value.values)
     .eq("building_id", built.value.buildingId)
-    .eq("dispenser_id", built.value.dispenserId);
+    .eq("dispenser_id", built.value.dispenserId)
+    .select("dispenser_id");
 
   if (error) {
     console.error("[wmw-usm]", {
@@ -133,6 +135,10 @@ export async function updateDispenser(
       dispenserId: built.value.dispenserId,
     });
     return failure("Unable to update dispenser right now.");
+  }
+
+  if (!data?.length) {
+    return failure(DISPENSER_NOT_FOUND_MESSAGE);
   }
 
   revalidateMapViews();
@@ -157,11 +163,12 @@ export async function deleteDispenser(
     return failure(AUTH_REQUIRED_MESSAGE);
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("dispensers")
     .delete()
     .eq("building_id", buildingId.value)
-    .eq("dispenser_id", dispenserId.value);
+    .eq("dispenser_id", dispenserId.value)
+    .select("dispenser_id");
 
   if (error) {
     console.error("[wmw-usm]", {
@@ -172,6 +179,10 @@ export async function deleteDispenser(
       dispenserId: dispenserId.value,
     });
     return failure("Unable to remove dispenser right now.");
+  }
+
+  if (!data?.length) {
+    return failure(DISPENSER_NOT_FOUND_MESSAGE);
   }
 
   revalidateMapViews();
@@ -191,13 +202,14 @@ export async function updateBuildingPin(
     return failure(AUTH_REQUIRED_MESSAGE);
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("buildings")
     .update({
       latitude: validated.value.latitude,
       longitude: validated.value.longitude,
     })
-    .eq("id", validated.value.buildingId);
+    .eq("id", validated.value.buildingId)
+    .select("id");
 
   if (error) {
     console.error("[wmw-usm]", {
@@ -209,6 +221,10 @@ export async function updateBuildingPin(
       longitude: validated.value.longitude,
     });
     return failure("Unable to update building pin right now.");
+  }
+
+  if (!data?.length) {
+    return failure(BUILDING_NOT_FOUND_MESSAGE);
   }
 
   revalidateMapViews();
