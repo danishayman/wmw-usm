@@ -30,8 +30,11 @@ type SupabaseMockOptions = {
   insertDispenserError?: { message: string } | null;
   insertBuildingError?: { message: string } | null;
   updateDispenserError?: { message: string } | null;
+  updateDispenserData?: Array<{ dispenser_id: string }> | null;
   deleteError?: { message: string } | null;
+  deleteData?: Array<{ dispenser_id: string }> | null;
   updateBuildingError?: { message: string } | null;
+  updateBuildingData?: Array<{ id: string }> | null;
 };
 
 function makeSupabaseMock(options: SupabaseMockOptions = {}) {
@@ -42,9 +45,13 @@ function makeSupabaseMock(options: SupabaseMockOptions = {}) {
     .fn()
     .mockResolvedValue({ error: options.insertBuildingError ?? null });
 
+  const updateDispenserSelect = vi.fn().mockResolvedValue({
+    data: options.updateDispenserData ?? [{ dispenser_id: "dsp-1" }],
+    error: options.updateDispenserError ?? null,
+  });
   const updateDispenserEqSecond = vi
     .fn()
-    .mockResolvedValue({ error: options.updateDispenserError ?? null });
+    .mockReturnValue({ select: updateDispenserSelect });
   const updateDispenserEqFirst = vi
     .fn()
     .mockReturnValue({ eq: updateDispenserEqSecond });
@@ -52,15 +59,19 @@ function makeSupabaseMock(options: SupabaseMockOptions = {}) {
     .fn()
     .mockReturnValue({ eq: updateDispenserEqFirst });
 
-  const deleteEqSecond = vi
-    .fn()
-    .mockResolvedValue({ error: options.deleteError ?? null });
+  const deleteSelect = vi.fn().mockResolvedValue({
+    data: options.deleteData ?? [{ dispenser_id: "dsp-1" }],
+    error: options.deleteError ?? null,
+  });
+  const deleteEqSecond = vi.fn().mockReturnValue({ select: deleteSelect });
   const deleteEqFirst = vi.fn().mockReturnValue({ eq: deleteEqSecond });
   const deleteCall = vi.fn().mockReturnValue({ eq: deleteEqFirst });
 
-  const updateBuildingEq = vi
-    .fn()
-    .mockResolvedValue({ error: options.updateBuildingError ?? null });
+  const updateBuildingSelect = vi.fn().mockResolvedValue({
+    data: options.updateBuildingData ?? [{ id: "bld-1" }],
+    error: options.updateBuildingError ?? null,
+  });
+  const updateBuildingEq = vi.fn().mockReturnValue({ select: updateBuildingSelect });
   const updateBuildingCall = vi.fn().mockReturnValue({ eq: updateBuildingEq });
 
   return {
@@ -204,6 +215,59 @@ describe("admin server actions", () => {
       message: "Building pin updated successfully.",
     });
     expect(supabase.calls.updateBuildingCall).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns not found when updateDispenser affects no rows", async () => {
+    const supabase = makeSupabaseMock({ updateDispenserData: [] });
+    createClientMock.mockResolvedValue(supabase as never);
+    requireAdminMock.mockResolvedValue({ ok: true, email: "admin@example.com" });
+
+    const result = await updateDispenser({
+      buildingId: "bld-1",
+      dispenserId: "dsp-missing",
+      locationDescription: "Level 1 Lobby",
+      brand: "Coway",
+      coldWaterStatus: "Unavailable",
+      maintenanceStatus: "Under Maintenance",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Dispenser could not be found.",
+    });
+  });
+
+  it("returns not found when deleteDispenser affects no rows", async () => {
+    const supabase = makeSupabaseMock({ deleteData: [] });
+    createClientMock.mockResolvedValue(supabase as never);
+    requireAdminMock.mockResolvedValue({ ok: true, email: "admin@example.com" });
+
+    const result = await deleteDispenser({
+      buildingId: "bld-1",
+      dispenserId: "dsp-missing",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Dispenser could not be found.",
+    });
+  });
+
+  it("returns not found when updateBuildingPin affects no rows", async () => {
+    const supabase = makeSupabaseMock({ updateBuildingData: [] });
+    createClientMock.mockResolvedValue(supabase as never);
+    requireAdminMock.mockResolvedValue({ ok: true, email: "admin@example.com" });
+
+    const result = await updateBuildingPin({
+      buildingId: "bld-missing",
+      latitude: 5.3555,
+      longitude: 100.3001,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Building could not be found.",
+    });
   });
 
   it("rejects mutation when user is not an admin", async () => {

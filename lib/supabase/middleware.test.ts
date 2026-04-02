@@ -50,4 +50,30 @@ describe("admin middleware", () => {
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("http://localhost/admin");
   });
+
+  it("preserves refreshed auth cookies on redirect responses", async () => {
+    createServerClientMock.mockImplementation((_, __, options) => {
+      options?.cookies?.setAll?.([
+        {
+          name: "sb-access-token",
+          value: "token-value",
+          options: { path: "/", httpOnly: true },
+        },
+      ]);
+
+      return {
+        auth: {
+          getUser: vi.fn().mockResolvedValue({
+            data: { user: null },
+          }),
+        },
+      } as never;
+    });
+
+    const request = new NextRequest("http://localhost/admin");
+    const response = await updateSession(request);
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("set-cookie")).toContain("sb-access-token=token-value");
+  });
 });

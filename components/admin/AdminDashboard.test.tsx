@@ -323,4 +323,18 @@ describe("AdminDashboard inline editing and pin workflows", () => {
       });
     });
   });
+
+  it("shows fallback error message when a mutation throws unexpectedly", async () => {
+    const createDispenserMock = vi.mocked(adminActions.createDispenser);
+    createDispenserMock.mockRejectedValueOnce(new Error("network down"));
+
+    render(<AdminDashboard buildings={BUILDINGS} adminEmail="admin@example.com" />);
+    fireEvent.click(screen.getByRole("button", { name: "Add Dispenser" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Something went wrong while saving. Please try again.")
+      ).toBeInTheDocument();
+    });
+  });
 });
