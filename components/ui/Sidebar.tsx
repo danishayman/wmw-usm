@@ -113,10 +113,10 @@ function DispenserList({ building }: { building: Building }) {
             <img
               src={dispenser.imageUrl}
               alt={`${dispenser.locationDescription} dispenser`}
-              className="mb-3 h-28 w-full rounded-xl border border-[#e2d8f0] object-cover"
+              className="mb-3 aspect-square w-full rounded-xl border border-[#e2d8f0] object-cover"
             />
           ) : (
-            <div className="mb-3 flex h-28 w-full items-center justify-center rounded-xl border border-dashed border-[#d8cdea] bg-[#f8f3ff] text-xs font-semibold tracking-wide text-[#6c5f84] uppercase">
+            <div className="mb-3 flex aspect-square w-full items-center justify-center rounded-xl border border-dashed border-[#d8cdea] bg-[#f8f3ff] text-xs font-semibold tracking-wide text-[#6c5f84] uppercase">
               No Image
             </div>
           )}
@@ -378,6 +378,10 @@ export default function Sidebar({ building, onClose, userLocation }: SidebarProp
           {!isPeek && (
             <div className="min-h-0 flex-1 overflow-y-auto">
               <DispenserList building={building} />
+              <div
+                aria-hidden="true"
+                style={{ height: `${Math.max(0, effectiveTranslate)}px` }}
+              />
             </div>
           )}
         </div>
