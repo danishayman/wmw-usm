@@ -213,10 +213,20 @@ export default function AdminDashboard({
           onSuccess?.();
           router.refresh();
         } catch (error) {
+          const errorMessage =
+            error instanceof Error
+              ? error.message
+              : typeof error === "object" &&
+                  error !== null &&
+                  "message" in error &&
+                  typeof (error as { message?: unknown }).message === "string"
+                ? (error as { message: string }).message
+                : "Unknown error";
+
           console.error("[wmw-usm]", {
             area: "admin_dashboard",
             operation: "run_mutation",
-            message: error instanceof Error ? error.message : "Unknown error",
+            message: errorMessage,
           });
           setMessage("error", DEFAULT_MUTATION_ERROR_MESSAGE);
         }
