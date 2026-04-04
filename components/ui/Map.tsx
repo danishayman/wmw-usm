@@ -4,17 +4,13 @@ import { useEffect, useState } from "react";
 import { MapContainer, Marker, TileLayer, useMap, ZoomControl } from "react-leaflet";
 import { DivIcon, type LatLngBoundsExpression, type Map as LeafletMap } from "leaflet";
 import "leaflet/dist/leaflet.css";
-import type { Building } from "@/lib/types";
-
-type LatLng = {
-  lat: number;
-  lng: number;
-};
+import type { Building, LatLng } from "@/lib/types";
 
 interface MapProps {
   buildings: Building[];
   onBuildingSelect: (building: Building) => void;
   selectedBuildingId: string | null;
+  nearestBuildingId: string | null;
   userLocation: LatLng | null;
   onUserLocationChange: (location: LatLng | null) => void;
 }
@@ -84,31 +80,51 @@ function createCurrentLocationIcon() {
   return new DivIcon({
     className: "bg-transparent border-none",
     html: `
-      <div style="position:relative;display:flex;align-items:center;justify-content:center;width:30px;height:30px;">
-        <span style="position:absolute;width:100%;height:100%;border-radius:9999px;background:rgba(60,174,252,0.35);animation:markerPulse 1.6s ease-out infinite;"></span>
-        <span style="position:relative;width:12px;height:12px;border-radius:9999px;background:#3CAEFC;border:2px solid white;box-shadow:0 0 6px rgba(25,150,255,0.8);"></span>
+      <div style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;width:86px;height:90px;">
+        <span style="position:absolute;top:10px;padding:4px 8px;border-radius:9999px;background:#1f3f82;color:#ffffff;font-size:10px;font-weight:800;line-height:1;white-space:nowrap;box-shadow:0 8px 14px -10px rgba(12,34,78,0.95);">
+          You are here
+        </span>
+        <span style="position:absolute;bottom:10px;width:30px;height:30px;border-radius:9999px;background:rgba(31,111,235,0.24);animation:markerPulse 1.7s ease-out infinite;"></span>
+        <img src="/pin.png" alt="Current location pin" style="position:relative;width:34px;height:46px;object-fit:contain;filter:drop-shadow(0 10px 12px rgba(18,55,122,0.34));" />
       </div>
     `,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
+    iconSize: [86, 90],
+    iconAnchor: [43, 84],
   });
 }
 
-function createIcon(isSelected: boolean) {
+function createIcon(isSelected: boolean, isNearest: boolean) {
   const pulseColor = isSelected ? "rgba(235,132,35,0.45)" : "rgba(102,49,170,0.35)";
-  const dotColor = isSelected ? "#EB8423" : "#6631AA";
+  const dotColor = isSelected ? "#EB8423" : isNearest ? "#0F766E" : "#6631AA";
   const ringColor = isSelected ? "#431A7C" : "#FFFFFF";
+  const nearestRingColor = "rgba(13,148,136,0.95)";
+  const nearestGlowColor = "rgba(13,148,136,0.3)";
+  const nearestTag = isNearest
+    ? `
+      <span style="position:absolute;top:-18px;padding:2px 7px;border-radius:9999px;background:#0F766E;color:#ffffff;font-size:9px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;box-shadow:0 8px 14px -10px rgba(15,118,110,0.95);white-space:nowrap;">
+        Nearest
+      </span>
+    `
+    : "";
+  const nearestOuterRing = isNearest
+    ? `
+      <span style="position:absolute;width:145%;height:145%;border-radius:9999px;border:3px solid ${nearestRingColor};box-shadow:0 0 0 5px ${nearestGlowColor};animation:markerPulse 2.1s ease-out infinite;"></span>
+      <span style="position:absolute;width:170%;height:170%;border-radius:9999px;background:rgba(13,148,136,0.16);animation:markerPulse 2.6s ease-out infinite;"></span>
+    `
+    : "";
 
   return new DivIcon({
     className: "bg-transparent border-none",
     html: `
-      <div style="position:relative;display:flex;align-items:center;justify-content:center;width:34px;height:34px;">
+      <div style="position:relative;display:flex;align-items:center;justify-content:center;width:44px;height:44px;">
+        ${nearestTag}
+        ${nearestOuterRing}
         <span style="position:absolute;width:100%;height:100%;border-radius:9999px;background:${pulseColor};animation:markerPulse 1.8s ease-out infinite;"></span>
-        <span style="position:relative;width:${isSelected ? "17px" : "13px"};height:${isSelected ? "17px" : "13px"};border-radius:9999px;background:${dotColor};box-shadow:0 10px 20px -12px rgba(67,26,124,0.9);border:${isSelected ? "4px" : "2px"} solid ${ringColor};transition:all 220ms ease;"></span>
+        <span style="position:relative;width:${isSelected ? "22px" : isNearest ? "20px" : "17px"};height:${isSelected ? "22px" : isNearest ? "20px" : "17px"};border-radius:9999px;background:${dotColor};box-shadow:${isNearest ? "0 0 0 6px rgba(13,148,136,0.28)" : "0 10px 20px -12px rgba(67,26,124,0.9)"};border:${isSelected ? "4px" : "2px"} solid ${ringColor};transition:all 220ms ease;"></span>
       </div>
     `,
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
   });
 }
 
@@ -116,6 +132,7 @@ export default function Map({
   buildings,
   onBuildingSelect,
   selectedBuildingId,
+  nearestBuildingId,
   userLocation,
   onUserLocationChange,
 }: MapProps) {
@@ -192,7 +209,7 @@ export default function Map({
           <Marker
             key={building.id}
             position={[building.latitude, building.longitude]}
-            icon={createIcon(selectedBuildingId === building.id)}
+            icon={createIcon(selectedBuildingId === building.id, nearestBuildingId === building.id)}
             eventHandlers={{
               click: () => onBuildingSelect(building),
             }}

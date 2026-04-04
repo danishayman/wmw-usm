@@ -27,12 +27,22 @@ export interface Dispenser {
   maintenanceStatus: MaintenanceStatus;
 }
 
+export interface LatLng {
+  lat: number;
+  lng: number;
+}
+
 export interface Building {
   id: string;
   name: string;
   latitude: number;
   longitude: number;
   dispensers: Dispenser[];
+}
+
+export interface NearestBuildingResult {
+  buildingId: string;
+  distanceMeters: number;
 }
 
 export interface DispenserMutationFields {
