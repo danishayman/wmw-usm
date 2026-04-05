@@ -73,7 +73,10 @@ export default function MapShell({ buildings }: MapShellProps) {
 
   return (
     <>
-      <div ref={infoControlRef} className="map-info-control fixed z-[1600]">
+      <div
+        ref={infoControlRef}
+        className="fixed z-[2100] left-auto top-52 right-2 md:top-[15.25rem] md:right-4"
+      >
         <button
           type="button"
           aria-label="Open site information"
@@ -91,7 +94,7 @@ export default function MapShell({ buildings }: MapShellProps) {
             role="dialog"
             aria-modal="false"
             aria-labelledby={`${infoPanelId}-title`}
-            className="absolute top-[calc(100%+0.6rem)] left-0 w-[min(21rem,88vw)] rounded-2xl border border-[#d8cdea] bg-white/98 p-4 shadow-[0_18px_38px_-22px_rgba(67,26,124,0.88)] backdrop-blur-sm"
+            className="absolute top-[calc(100%+0.6rem)] right-0 w-[min(21rem,88vw)] rounded-2xl border border-[#d8cdea] bg-white/98 p-4 shadow-[0_18px_38px_-22px_rgba(67,26,124,0.88)] backdrop-blur-sm"
           >
             <div className="flex items-start justify-between gap-3">
               <h2
