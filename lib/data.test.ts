@@ -18,11 +18,26 @@ type QueryResult = {
   error: QueryError | null;
 };
 
-function makeClient(result: QueryResult) {
-  const order = vi.fn().mockResolvedValue(result);
+function makeClient(result: QueryResult | QueryResult[]) {
+  const results = Array.isArray(result) ? result : [result];
+  let index = 0;
+  const order = vi.fn().mockImplementation(async () => {
+    const selected = results[Math.min(index, results.length - 1)];
+    index += 1;
+    return selected;
+  });
   const select = vi.fn().mockReturnValue({ order });
   const from = vi.fn().mockReturnValue({ select });
-  return { from };
+  const getPublicUrl = vi.fn((path: string) => ({
+    data: { publicUrl: `https://cdn.test/${path}` },
+  }));
+  const storageFrom = vi.fn().mockReturnValue({ getPublicUrl });
+  return {
+    from,
+    storage: {
+      from: storageFrom,
+    },
+  };
 }
 
 describe("getBuildings", () => {
@@ -52,6 +67,8 @@ describe("getBuildings", () => {
               brand: "Cuckoo",
               cold_water_status: "Available",
               maintenance_status: "Operational",
+              image_paths: ["bld-1/dsp-1/sample.jpg"],
+              image_path: "bld-1/dsp-1/sample.jpg",
             },
           ],
         },
@@ -76,6 +93,8 @@ describe("getBuildings", () => {
             brand: "Cuckoo",
             coldWaterStatus: "Available",
             maintenanceStatus: "Operational",
+            imagePaths: ["bld-1/dsp-1/sample.jpg"],
+            imageUrls: ["https://cdn.test/bld-1/dsp-1/sample.jpg"],
           },
         ],
       },
@@ -99,6 +118,8 @@ describe("getBuildings", () => {
               brand: "Coway",
               cold_water_status: "Available",
               maintenance_status: "Out of service",
+              image_paths: [],
+              image_path: null,
             },
           ],
         },
@@ -110,6 +131,47 @@ describe("getBuildings", () => {
     const buildings = await getBuildings();
 
     expect(buildings[0]?.dispensers[0]?.maintenanceStatus).toBe("Unknown");
+  });
+
+  it("falls back to legacy image_path query when image_paths column is unavailable", async () => {
+    const client = makeClient([
+      {
+        data: null,
+        error: {
+          message: "column dispensers.image_paths does not exist",
+          code: "42703",
+        },
+      },
+      {
+        data: [
+          {
+            id: "bld-1",
+            name: "School of Computer Sciences",
+            latitude: 5.35,
+            longitude: 100.3,
+            dispensers: [
+              {
+                building_id: "bld-1",
+                dispenser_id: "dsp-1",
+                location_description: "Pantry CS",
+                brand: "Cuckoo",
+                cold_water_status: "Available",
+                maintenance_status: "Operational",
+                image_path: "bld-1/dsp-1/sample.jpg",
+              },
+            ],
+          },
+        ],
+        error: null,
+      },
+    ]);
+    createClientMock.mockReturnValue(client as never);
+
+    const buildings = await getBuildings();
+
+    expect(buildings[0]?.dispensers[0]?.imagePaths).toEqual([
+      "bld-1/dsp-1/sample.jpg",
+    ]);
   });
 
   it("logs structured details and throws a user-safe error when query fails", async () => {

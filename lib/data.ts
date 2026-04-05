@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { PostgrestError } from "@supabase/supabase-js";
+import { DISPENSER_IMAGE_BUCKET } from "@/lib/dispenser-images";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Building, ColdWaterStatus, MaintenanceStatus } from "@/lib/types";
 
@@ -11,6 +12,8 @@ type DispenserRow = {
   brand: string;
   cold_water_status: string;
   maintenance_status: string;
+  image_paths?: string[] | null;
+  image_path: string | null;
 };
 
 type BuildingRow = {
@@ -23,6 +26,10 @@ type BuildingRow = {
 
 export const BUILDINGS_LOAD_ERROR_MESSAGE =
   "Unable to load water refill data right now.";
+const BUILDINGS_SELECT_WITH_GALLERY =
+  "id,name,latitude,longitude,dispensers(building_id,dispenser_id,location_description,brand,cold_water_status,maintenance_status,image_paths,image_path)";
+const BUILDINGS_SELECT_LEGACY =
+  "id,name,latitude,longitude,dispensers(building_id,dispenser_id,location_description,brand,cold_water_status,maintenance_status,image_path)";
 
 function toColdWaterStatus(value: string): ColdWaterStatus {
   if (value === "Available" || value === "Unavailable" || value === "Unknown") {
@@ -45,15 +52,35 @@ function toMaintenanceStatus(value: string): MaintenanceStatus {
   return "Unknown";
 }
 
+function toImagePaths(dispenser: DispenserRow): string[] {
+  if (Array.isArray(dispenser.image_paths)) {
+    return dispenser.image_paths.filter(
+      (value): value is string => typeof value === "string" && value.length > 0
+    );
+  }
+
+  if (typeof dispenser.image_path === "string" && dispenser.image_path.length > 0) {
+    return [dispenser.image_path];
+  }
+
+  return [];
+}
+
+function isMissingImagePathsColumn(error: PostgrestError | null) {
+  return error?.code === "42703" && error.message.includes("image_paths");
+}
+
 export async function getBuildings(): Promise<Building[]> {
   const supabase = createSupabaseServerClient();
 
-  const { data, error } = await supabase
+  const queryWithGallery = await supabase
     .from("buildings")
-    .select(
-      "id,name,latitude,longitude,dispensers(building_id,dispenser_id,location_description,brand,cold_water_status,maintenance_status)"
-    )
+    .select(BUILDINGS_SELECT_WITH_GALLERY)
     .order("name");
+  const queryResult = isMissingImagePathsColumn(queryWithGallery.error as PostgrestError | null)
+    ? await supabase.from("buildings").select(BUILDINGS_SELECT_LEGACY).order("name")
+    : queryWithGallery;
+  const { data, error } = queryResult;
 
   if (error) {
     const typedError = error as PostgrestError | null;
@@ -75,13 +102,24 @@ export async function getBuildings(): Promise<Building[]> {
     name: building.name,
     latitude: building.latitude,
     longitude: building.longitude,
-    dispensers: (building.dispensers ?? []).map((dispenser) => ({
-      id: dispenser.dispenser_id,
-      buildingId: dispenser.building_id,
-      locationDescription: dispenser.location_description,
-      brand: dispenser.brand,
-      coldWaterStatus: toColdWaterStatus(dispenser.cold_water_status),
-      maintenanceStatus: toMaintenanceStatus(dispenser.maintenance_status),
-    })),
+    dispensers: (building.dispensers ?? []).map((dispenser) => {
+      const imagePaths = toImagePaths(dispenser);
+      const imageUrls = imagePaths.map(
+        (path) =>
+          supabase.storage.from(DISPENSER_IMAGE_BUCKET).getPublicUrl(path).data
+            .publicUrl
+      );
+
+      return {
+        id: dispenser.dispenser_id,
+        buildingId: dispenser.building_id,
+        locationDescription: dispenser.location_description,
+        brand: dispenser.brand,
+        coldWaterStatus: toColdWaterStatus(dispenser.cold_water_status),
+        maintenanceStatus: toMaintenanceStatus(dispenser.maintenance_status),
+        imagePaths,
+        imageUrls,
+      };
+    }),
   }));
 }

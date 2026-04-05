@@ -25,6 +25,8 @@ export interface Dispenser {
   brand: string;
   coldWaterStatus: ColdWaterStatus;
   maintenanceStatus: MaintenanceStatus;
+  imagePaths: string[];
+  imageUrls: string[];
 }
 
 export interface LatLng {
@@ -81,6 +83,10 @@ export interface UpdateBuildingPinPayload {
 export interface MutationResult {
   ok: boolean;
   message: string;
+}
+
+export interface CreateDispenserResult extends MutationResult {
+  dispenserId?: string;
 }
 
 export interface CreateBuildingResult extends MutationResult {
