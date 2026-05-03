@@ -10,7 +10,7 @@ import {
 } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import DispenserListItem from "@/components/ui/DispenserListItem";
-import type { DispenserListEntry } from "@/lib/types";
+import type { DispenserListEntry, DispenserSortMode } from "@/lib/types";
 
 type MobileSnap = "peek" | "half" | "full";
 
@@ -31,7 +31,10 @@ interface DispenserListProps {
   entries: DispenserListEntry[];
   selectedDispenserId: string | null;
   searchQuery: string;
+  sortMode: DispenserSortMode;
+  isNearestSortAvailable: boolean;
   onSearchQueryChange: (value: string) => void;
+  onSortModeChange: (mode: DispenserSortMode) => void;
   onSelectDispenser: (dispenserId: string) => void;
   isDesktopCollapsed?: boolean;
   onToggleDesktopCollapsed?: () => void;
@@ -98,11 +101,48 @@ function SearchInput({
   );
 }
 
+function SortControl({
+  sortMode,
+  isNearestSortAvailable,
+  onSortModeChange,
+}: {
+  sortMode: DispenserSortMode;
+  isNearestSortAvailable: boolean;
+  onSortModeChange: (mode: DispenserSortMode) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-[11px] font-bold tracking-wide text-[#5a4973] uppercase">
+        Sort
+      </label>
+      <select
+        value={sortMode}
+        onChange={(event) => onSortModeChange(event.target.value as DispenserSortMode)}
+        className="mt-1 w-full rounded-xl border border-[#d2c3e8] bg-white px-3 py-2 text-sm font-semibold text-[#2f2050] outline-none focus:border-[#8b65c6] focus:ring-2 focus:ring-[#8b65c6]/20"
+        aria-label="Sort dispenser list"
+      >
+        <option value="nearest" disabled={!isNearestSortAvailable}>
+          Nearest
+        </option>
+        <option value="building_asc">A-Z by building</option>
+      </select>
+      {!isNearestSortAvailable && (
+        <p className="mt-1 text-[11px] font-semibold text-[#6f5b8a]">
+          Enable location to use Nearest.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function DispenserList({
   entries,
   selectedDispenserId,
   searchQuery,
+  sortMode,
+  isNearestSortAvailable,
   onSearchQueryChange,
+  onSortModeChange,
   onSelectDispenser,
   isDesktopCollapsed = false,
   onToggleDesktopCollapsed = () => {},
@@ -154,6 +194,20 @@ export default function DispenserList({
   const isDragging = dragTranslate !== null;
   const effectiveTranslate = dragTranslate ?? snapTranslate;
   const isPeek = mobileSnap === "peek" && !isDragging;
+  const mobileVisibleEntries = useMemo(() => {
+    if (!isPeek) {
+      return entries;
+    }
+
+    if (selectedDispenserId) {
+      const selectedEntry = entries.find((entry) => entry.dispenserId === selectedDispenserId);
+      if (selectedEntry) {
+        return [selectedEntry];
+      }
+    }
+
+    return entries.slice(0, 1);
+  }, [entries, isPeek, selectedDispenserId]);
 
   const finishDrag = (pointerEvent: PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
@@ -287,6 +341,13 @@ export default function DispenserList({
                 onSearchQueryChange={onSearchQueryChange}
               />
             </div>
+            <div className="mt-3">
+              <SortControl
+                sortMode={sortMode}
+                isNearestSortAvailable={isNearestSortAvailable}
+                onSortModeChange={onSortModeChange}
+              />
+            </div>
           </div>
           <div className="flex-1 space-y-2 overflow-y-auto p-3">
             {entries.map((entry) => (
@@ -360,33 +421,43 @@ export default function DispenserList({
                 onSearchQueryChange={onSearchQueryChange}
               />
             </div>
+            <div className="mt-2">
+              <SortControl
+                sortMode={sortMode}
+                isNearestSortAvailable={isNearestSortAvailable}
+                onSortModeChange={onSortModeChange}
+              />
+            </div>
           </div>
 
-          {!isPeek && (
-            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-              {entries.map((entry) => (
-                <div
-                  key={entry.dispenserId}
-                  ref={(element) => {
-                    rowRefs.current[entry.dispenserId] = element;
-                  }}
-                >
-                  <DispenserListItem
-                    dispenser={entry}
-                    isSelected={selectedDispenserId === entry.dispenserId}
-                    onSelect={onSelectDispenser}
-                  />
-                </div>
-              ))}
-              {entries.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-[#d8cdea] bg-[#f8f3ff] px-5 py-8 text-center">
-                  <p className="font-semibold text-[#4a3a66]">
-                    No dispensers matched your search.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+          <div className={`min-h-0 flex-1 overflow-y-auto ${isPeek ? "space-y-1.5 px-3 pt-2 pb-3" : "space-y-2 p-3"}`}>
+            {mobileVisibleEntries.map((entry) => (
+              <div
+                key={entry.dispenserId}
+                ref={(element) => {
+                  rowRefs.current[entry.dispenserId] = element;
+                }}
+              >
+                <DispenserListItem
+                  dispenser={entry}
+                  isSelected={selectedDispenserId === entry.dispenserId}
+                  onSelect={onSelectDispenser}
+                />
+              </div>
+            ))}
+            {entries.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-[#d8cdea] bg-[#f8f3ff] px-5 py-8 text-center">
+                <p className="font-semibold text-[#4a3a66]">
+                  No dispensers matched your search.
+                </p>
+              </div>
+            )}
+            {isPeek && entries.length > 1 && (
+              <p className="px-1 text-xs font-semibold text-[#6f5b8a]">
+                Pull up to view more results.
+              </p>
+            )}
+          </div>
         </div>
       </aside>
     </>

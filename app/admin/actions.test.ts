@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createBuilding,
   createDispenser,
+  deleteBuilding,
   deleteDispenser,
   removeDispenserImage,
   updateBuildingPin,
@@ -43,6 +44,8 @@ type SupabaseMockOptions = {
   }> | null;
   updateBuildingError?: { message: string } | null;
   updateBuildingData?: Array<{ id: string }> | null;
+  deleteBuildingError?: { message: string } | null;
+  deleteBuildingData?: Array<{ id: string }> | null;
   dispenserLookupError?: { message: string } | null;
   dispenserLookupData?: { image_paths?: string[] | null; image_path?: string | null } | null;
   storageUploadError?: { message: string } | null;
@@ -117,6 +120,13 @@ function makeSupabaseMock(options: SupabaseMockOptions = {}) {
   const updateBuildingEq = vi.fn().mockReturnValue({ select: updateBuildingSelect });
   const updateBuildingCall = vi.fn().mockReturnValue({ eq: updateBuildingEq });
 
+  const deleteBuildingSelect = vi.fn().mockResolvedValue({
+    data: options.deleteBuildingData ?? [{ id: "bld-1" }],
+    error: options.deleteBuildingError ?? null,
+  });
+  const deleteBuildingEq = vi.fn().mockReturnValue({ select: deleteBuildingSelect });
+  const deleteBuildingCall = vi.fn().mockReturnValue({ eq: deleteBuildingEq });
+
   const storageUpload = vi
     .fn()
     .mockResolvedValue({ error: options.storageUploadError ?? null });
@@ -143,6 +153,7 @@ function makeSupabaseMock(options: SupabaseMockOptions = {}) {
         return {
           insert: insertBuilding,
           update: updateBuildingCall,
+          delete: deleteBuildingCall,
         };
       }
 
@@ -161,6 +172,7 @@ function makeSupabaseMock(options: SupabaseMockOptions = {}) {
       updateImageCall,
       deleteCall,
       updateBuildingCall,
+      deleteBuildingCall,
       dispenserLookupSelect,
       storageUpload,
       storageRemove,
@@ -241,6 +253,22 @@ describe("admin server actions", () => {
       message: "Dispenser updated successfully.",
     });
     expect(supabase.calls.updateDispenserCall).toHaveBeenCalledTimes(1);
+  });
+
+  it("deletes a building when admin user is authorized", async () => {
+    const supabase = makeSupabaseMock();
+    createClientMock.mockResolvedValue(supabase as never);
+    requireAdminMock.mockResolvedValue({ ok: true, email: "admin@example.com" });
+
+    const result = await deleteBuilding({
+      buildingId: "bld-1",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      message: "Building removed successfully.",
+    });
+    expect(supabase.calls.deleteBuildingCall).toHaveBeenCalledTimes(1);
   });
 
   it("deletes a dispenser when admin user is authorized", async () => {
@@ -548,6 +576,21 @@ describe("admin server actions", () => {
       buildingId: "bld-missing",
       latitude: 5.3555,
       longitude: 100.3001,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Building could not be found.",
+    });
+  });
+
+  it("returns not found when deleteBuilding affects no rows", async () => {
+    const supabase = makeSupabaseMock({ deleteBuildingData: [] });
+    createClientMock.mockResolvedValue(supabase as never);
+    requireAdminMock.mockResolvedValue({ ok: true, email: "admin@example.com" });
+
+    const result = await deleteBuilding({
+      buildingId: "bld-missing",
     });
 
     expect(result).toEqual({

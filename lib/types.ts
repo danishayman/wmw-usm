@@ -57,6 +57,8 @@ export interface DispenserListEntry {
   imageUrls: string[];
 }
 
+export type DispenserSortMode = "nearest" | "building_asc";
+
 export interface NearestBuildingResult {
   buildingId: string;
   distanceMeters: number;
@@ -87,6 +89,10 @@ export interface UpdateDispenserPayload extends DispenserMutationFields {
 export interface DeleteDispenserPayload {
   buildingId: string;
   dispenserId: string;
+}
+
+export interface DeleteBuildingPayload {
+  buildingId: string;
 }
 
 export interface UpdateBuildingPinPayload {

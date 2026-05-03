@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import {
   createBuilding,
   createDispenser,
+  deleteBuilding,
   deleteDispenser,
   removeDispenserImage,
   signOutAdmin,
@@ -572,6 +573,40 @@ export default function AdminDashboard({
     );
   };
 
+  const handleDeleteBuilding = () => {
+    if (!selectedBuilding) {
+      setMessage("error", "Select a building first.");
+      return;
+    }
+
+    if (!discardUnsavedChangesIfConfirmed()) {
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      `Delete building "${selectedBuilding.name}" permanently? This will also remove all dispensers in this building.`
+    );
+    if (!shouldDelete) {
+      return;
+    }
+
+    const buildingId = selectedBuilding.id;
+    const nextSelectedBuildingId =
+      buildings.find((building) => building.id !== buildingId)?.id ?? null;
+
+    runMutation(
+      () =>
+        deleteBuilding({
+          buildingId,
+        }),
+      () => {
+        setSelectedBuildingId(nextSelectedBuildingId);
+        setEditDraft(null);
+        clearPinDraft();
+      }
+    );
+  };
+
   const handleSwitchPinWorkflow = (nextWorkflow: PinWorkflow) => {
     if (nextWorkflow === pinWorkflow) {
       return;
@@ -795,6 +830,19 @@ export default function AdminDashboard({
                       className="rounded-xl border border-[#d4c6e8] bg-white px-3 py-2 text-sm font-semibold text-[#482e74] transition hover:border-[#9f82c9] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Cancel Draft
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeleteBuilding}
+                      disabled={!selectedBuilding || isPending}
+                      aria-label={
+                        selectedBuilding
+                          ? `Delete building ${selectedBuilding.name}`
+                          : "Delete selected building"
+                      }
+                      className="rounded-xl bg-[#ffecef] px-3 py-2 text-sm font-semibold text-[#912b35] transition hover:bg-[#ffdbe1] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Delete Building
                     </button>
                   </div>
                 </div>

@@ -1,4 +1,5 @@
-import type { Building, DispenserListEntry } from "@/lib/types";
+import { haversineDistanceMeters } from "@/lib/nearest";
+import type { Building, DispenserListEntry, DispenserSortMode, LatLng } from "@/lib/types";
 
 const FLOOR_PATTERNS: Array<{ pattern: RegExp; formatter: (match: RegExpMatchArray) => string }> = [
   {
@@ -113,4 +114,48 @@ export function filterDispenserListEntries(
   }
 
   return entries.filter((entry) => toSearchableText(entry).includes(normalizedQuery));
+}
+
+function compareByBuilding(left: DispenserListEntry, right: DispenserListEntry) {
+  const byBuilding = left.buildingName.localeCompare(right.buildingName, undefined, {
+    sensitivity: "base",
+  });
+  if (byBuilding !== 0) {
+    return byBuilding;
+  }
+
+  return left.locationDescription.localeCompare(right.locationDescription, undefined, {
+    sensitivity: "base",
+  });
+}
+
+export function sortDispenserListEntries(
+  entries: DispenserListEntry[],
+  sortMode: DispenserSortMode,
+  userLocation: LatLng | null
+): DispenserListEntry[] {
+  if (sortMode === "building_asc") {
+    return [...entries].sort(compareByBuilding);
+  }
+
+  if (!userLocation) {
+    return [...entries].sort(compareByBuilding);
+  }
+
+  return [...entries].sort((left, right) => {
+    const leftDistance = haversineDistanceMeters(userLocation, {
+      lat: left.latitude,
+      lng: left.longitude,
+    });
+    const rightDistance = haversineDistanceMeters(userLocation, {
+      lat: right.latitude,
+      lng: right.longitude,
+    });
+
+    if (leftDistance !== rightDistance) {
+      return leftDistance - rightDistance;
+    }
+
+    return compareByBuilding(left, right);
+  });
 }

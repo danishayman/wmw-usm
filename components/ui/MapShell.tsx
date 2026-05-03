@@ -4,9 +4,13 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Info, X } from "lucide-react";
 import DispenserList from "@/components/ui/DispenserList";
-import { buildDispenserListEntries, filterDispenserListEntries } from "@/lib/dispenser-list";
+import {
+  buildDispenserListEntries,
+  filterDispenserListEntries,
+  sortDispenserListEntries,
+} from "@/lib/dispenser-list";
 import { findNearestBuildingWithDispenser } from "@/lib/nearest";
-import type { Building } from "@/lib/types";
+import type { Building, DispenserSortMode } from "@/lib/types";
 
 const Map = dynamic(() => import("@/components/ui/Map"), {
   ssr: false,
@@ -17,13 +21,18 @@ interface MapShellProps {
 }
 
 const FEEDBACK_FORM_URL = "https://forms.gle/A1aCaxL8UdDp7yod8";
+const SORT_MODE_STORAGE_KEY = "wmw:dispenser-sort-mode";
 
 export default function MapShell({ buildings }: MapShellProps) {
   const [selectedDispenserId, setSelectedDispenserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [sortMode, setSortMode] = useState<DispenserSortMode>("building_asc");
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
+  const [hasLoadedSortPreference, setHasLoadedSortPreference] = useState(false);
+  const [hasStoredSortPreference, setHasStoredSortPreference] = useState(false);
+  const [hasUserChangedSortMode, setHasUserChangedSortMode] = useState(false);
   const hasAutoCenteredNearestRef = useRef(false);
   const infoPanelId = useId();
   const infoControlRef = useRef<HTMLDivElement | null>(null);
@@ -31,6 +40,13 @@ export default function MapShell({ buildings }: MapShellProps) {
   const filteredDispenserEntries = useMemo(
     () => filterDispenserListEntries(dispenserEntries, searchQuery),
     [dispenserEntries, searchQuery]
+  );
+  const isNearestSortAvailable = userLocation !== null;
+  const activeSortMode: DispenserSortMode =
+    sortMode === "nearest" && !isNearestSortAvailable ? "building_asc" : sortMode;
+  const sortedDispenserEntries = useMemo(
+    () => sortDispenserListEntries(filteredDispenserEntries, activeSortMode, userLocation),
+    [activeSortMode, filteredDispenserEntries, userLocation]
   );
   const nearestBuilding = useMemo(
     () => findNearestBuildingWithDispenser(userLocation, buildings),
@@ -49,10 +65,10 @@ export default function MapShell({ buildings }: MapShellProps) {
       return null;
     }
 
-    return filteredDispenserEntries.some((entry) => entry.dispenserId === selectedDispenserId)
+    return sortedDispenserEntries.some((entry) => entry.dispenserId === selectedDispenserId)
       ? selectedDispenserId
       : null;
-  }, [filteredDispenserEntries, selectedDispenserId]);
+  }, [selectedDispenserId, sortedDispenserEntries]);
 
   const handleSearchQueryChange = (value: string) => {
     setSearchQuery(value);
@@ -68,6 +84,11 @@ export default function MapShell({ buildings }: MapShellProps) {
     if (!isSelectedVisible) {
       setSelectedDispenserId(null);
     }
+  };
+
+  const handleSortModeChange = (mode: DispenserSortMode) => {
+    setHasUserChangedSortMode(true);
+    setSortMode(mode);
   };
 
   const handleUserLocationChange = (location: { lat: number; lng: number } | null) => {
@@ -92,6 +113,41 @@ export default function MapShell({ buildings }: MapShellProps) {
     hasAutoCenteredNearestRef.current = true;
     setSelectedDispenserId(nearestEntry.dispenserId);
   };
+
+  useEffect(() => {
+    const persistedSortMode = window.localStorage.getItem(SORT_MODE_STORAGE_KEY);
+    if (persistedSortMode === "nearest" || persistedSortMode === "building_asc") {
+      setSortMode(persistedSortMode);
+      setHasStoredSortPreference(true);
+    }
+    setHasLoadedSortPreference(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedSortPreference) {
+      return;
+    }
+
+    window.localStorage.setItem(SORT_MODE_STORAGE_KEY, sortMode);
+  }, [hasLoadedSortPreference, sortMode]);
+
+  useEffect(() => {
+    if (
+      !hasLoadedSortPreference ||
+      hasStoredSortPreference ||
+      hasUserChangedSortMode ||
+      !userLocation
+    ) {
+      return;
+    }
+
+    setSortMode("nearest");
+  }, [
+    hasLoadedSortPreference,
+    hasStoredSortPreference,
+    hasUserChangedSortMode,
+    userLocation,
+  ]);
 
   useEffect(() => {
     if (!isInfoOpen) {
@@ -211,10 +267,13 @@ export default function MapShell({ buildings }: MapShellProps) {
         </div>
       )}
       <DispenserList
-        entries={filteredDispenserEntries}
+        entries={sortedDispenserEntries}
         selectedDispenserId={visibleSelectedDispenserId}
         searchQuery={searchQuery}
+        sortMode={sortMode}
+        isNearestSortAvailable={isNearestSortAvailable}
         onSearchQueryChange={handleSearchQueryChange}
+        onSortModeChange={handleSortModeChange}
         onSelectDispenser={setSelectedDispenserId}
         isDesktopCollapsed={isDesktopSidebarCollapsed}
         onToggleDesktopCollapsed={() =>
@@ -226,9 +285,10 @@ export default function MapShell({ buildings }: MapShellProps) {
       >
         <Map
           buildings={buildings}
-          dispenserEntries={filteredDispenserEntries}
+          dispenserEntries={sortedDispenserEntries}
           selectedDispenserId={visibleSelectedDispenserId}
           nearestBuildingId={nearestBuilding?.buildingId ?? null}
+          isDesktopSidebarCollapsed={isDesktopSidebarCollapsed}
           userLocation={userLocation}
           onUserLocationChange={handleUserLocationChange}
           onDispenserSelect={setSelectedDispenserId}

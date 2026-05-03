@@ -121,7 +121,7 @@ const ENTRIES: DispenserListEntry[] = [
     brand: "Coway",
     coldWaterStatus: "Available",
     maintenanceStatus: "Operational",
-    imageUrls: [],
+    imageUrls: ["/images/pantry.jpg"],
   },
   {
     dispenserId: "dsp-2",
@@ -218,6 +218,7 @@ describe("Map marker nearest-state rendering", () => {
         onDispenserSelect={vi.fn()}
         selectedDispenserId={null}
         nearestBuildingId="bld-1"
+        isDesktopSidebarCollapsed={false}
         userLocation={{ lat: 5.3561, lng: 100.2991 }}
         onUserLocationChange={vi.fn()}
       />
@@ -238,6 +239,7 @@ describe("Map marker nearest-state rendering", () => {
         onDispenserSelect={vi.fn()}
         selectedDispenserId="dsp-1"
         nearestBuildingId={null}
+        isDesktopSidebarCollapsed={false}
         userLocation={{ lat: 5.3561, lng: 100.2991 }}
         onUserLocationChange={vi.fn()}
       />
@@ -257,6 +259,7 @@ describe("Map marker nearest-state rendering", () => {
         onDispenserSelect={vi.fn()}
         selectedDispenserId={null}
         nearestBuildingId={null}
+        isDesktopSidebarCollapsed={false}
         userLocation={null}
         onUserLocationChange={vi.fn()}
       />
@@ -274,6 +277,7 @@ describe("Map marker nearest-state rendering", () => {
         onDispenserSelect={vi.fn()}
         selectedDispenserId={null}
         nearestBuildingId={null}
+        isDesktopSidebarCollapsed={false}
         userLocation={null}
         onUserLocationChange={vi.fn()}
       />
@@ -286,12 +290,49 @@ describe("Map marker nearest-state rendering", () => {
         onDispenserSelect={vi.fn()}
         selectedDispenserId="dsp-1"
         nearestBuildingId={null}
+        isDesktopSidebarCollapsed={false}
         userLocation={null}
         onUserLocationChange={vi.fn()}
       />
     );
 
     expect(openPopupMock).toHaveBeenCalled();
+  });
+
+  it("shows popup image previews when desktop sidebar is collapsed", () => {
+    render(
+      <Map
+        buildings={BUILDINGS}
+        dispenserEntries={ENTRIES}
+        onDispenserSelect={vi.fn()}
+        selectedDispenserId={null}
+        nearestBuildingId={null}
+        isDesktopSidebarCollapsed={true}
+        userLocation={null}
+        onUserLocationChange={vi.fn()}
+      />
+    );
+
+    expect(screen.getByAltText("Pantry dispenser")).toBeInTheDocument();
+    expect(screen.getByText("No image")).toBeInTheDocument();
+  });
+
+  it("hides popup image previews when desktop sidebar is expanded", () => {
+    render(
+      <Map
+        buildings={BUILDINGS}
+        dispenserEntries={ENTRIES}
+        onDispenserSelect={vi.fn()}
+        selectedDispenserId={null}
+        nearestBuildingId={null}
+        isDesktopSidebarCollapsed={false}
+        userLocation={null}
+        onUserLocationChange={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByAltText("Pantry dispenser")).not.toBeInTheDocument();
+    expect(screen.queryByText("No image")).not.toBeInTheDocument();
   });
 
   it("starts geolocation watch when map is ready", () => {
@@ -302,6 +343,7 @@ describe("Map marker nearest-state rendering", () => {
         onDispenserSelect={vi.fn()}
         selectedDispenserId={null}
         nearestBuildingId={null}
+        isDesktopSidebarCollapsed={false}
         userLocation={null}
         onUserLocationChange={vi.fn()}
       />
@@ -318,6 +360,7 @@ describe("Map marker nearest-state rendering", () => {
         onDispenserSelect={vi.fn()}
         selectedDispenserId={null}
         nearestBuildingId={null}
+        isDesktopSidebarCollapsed={false}
         userLocation={null}
         onUserLocationChange={vi.fn()}
       />
@@ -341,6 +384,7 @@ describe("Map marker nearest-state rendering", () => {
         onDispenserSelect={vi.fn()}
         selectedDispenserId={null}
         nearestBuildingId={null}
+        isDesktopSidebarCollapsed={false}
         userLocation={null}
         onUserLocationChange={onUserLocationChange}
       />
@@ -370,6 +414,7 @@ describe("Map marker nearest-state rendering", () => {
         onDispenserSelect={vi.fn()}
         selectedDispenserId={null}
         nearestBuildingId={null}
+        isDesktopSidebarCollapsed={false}
         userLocation={null}
         onUserLocationChange={onUserLocationChange}
       />
@@ -396,6 +441,7 @@ describe("Map marker nearest-state rendering", () => {
         onDispenserSelect={vi.fn()}
         selectedDispenserId={null}
         nearestBuildingId={null}
+        isDesktopSidebarCollapsed={false}
         userLocation={null}
         onUserLocationChange={onUserLocationChange}
       />
@@ -422,6 +468,7 @@ describe("Map marker nearest-state rendering", () => {
         onDispenserSelect={vi.fn()}
         selectedDispenserId={null}
         nearestBuildingId={null}
+        isDesktopSidebarCollapsed={false}
         userLocation={null}
         onUserLocationChange={onUserLocationChange}
       />
@@ -449,6 +496,7 @@ describe("Map marker nearest-state rendering", () => {
         onDispenserSelect={vi.fn()}
         selectedDispenserId={null}
         nearestBuildingId={null}
+        isDesktopSidebarCollapsed={false}
         userLocation={null}
         onUserLocationChange={onUserLocationChange}
       />

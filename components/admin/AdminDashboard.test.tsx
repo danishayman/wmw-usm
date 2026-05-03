@@ -53,6 +53,10 @@ vi.mock("@/app/admin/actions", () => ({
     message: "created",
     dispenserId: "dsp-created",
   }),
+  deleteBuilding: vi.fn().mockResolvedValue({
+    ok: true,
+    message: "building deleted",
+  }),
   deleteDispenser: vi.fn().mockResolvedValue({
     ok: true,
     message: "deleted",
@@ -316,6 +320,23 @@ describe("AdminDashboard inline editing and pin workflows", () => {
       expect(
         screen.queryAllByLabelText("Edit location for 1st Floor Pantry")
       ).toHaveLength(0);
+    });
+  });
+
+  it("deletes selected building from edit-existing controls", async () => {
+    const deleteBuildingMock = vi.mocked(adminActions.deleteBuilding);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<AdminDashboard buildings={BUILDINGS} adminEmail="admin@example.com" />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete building Building One" })
+    );
+
+    await waitFor(() => {
+      expect(deleteBuildingMock).toHaveBeenCalledWith({
+        buildingId: "bld-1",
+      });
     });
   });
 

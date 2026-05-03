@@ -7,6 +7,7 @@ import type {
   CreateBuildingResult,
   CreateDispenserPayload,
   CreateDispenserResult,
+  DeleteBuildingPayload,
   DeleteDispenserPayload,
   MutationResult,
   UpdateBuildingPinPayload,
@@ -169,6 +170,43 @@ export async function createBuilding(
     message: "Building created successfully.",
     buildingId: built.value.id,
   };
+}
+
+export async function deleteBuilding(
+  payload: DeleteBuildingPayload
+): Promise<MutationResult> {
+  const buildingId = validateBuildingId(payload.buildingId);
+  if (!buildingId.ok) {
+    return failure(buildingId.message);
+  }
+
+  const { supabase, guard } = await ensureAdmin();
+  if (!guard.ok) {
+    return failure(AUTH_REQUIRED_MESSAGE);
+  }
+
+  const { data, error } = await supabase
+    .from("buildings")
+    .delete()
+    .eq("id", buildingId.value)
+    .select("id");
+
+  if (error) {
+    console.error("[wmw-usm]", {
+      area: "admin",
+      operation: "delete_building",
+      message: error.message,
+      buildingId: buildingId.value,
+    });
+    return failure("Unable to remove building right now.");
+  }
+
+  if (!data?.length) {
+    return failure(BUILDING_NOT_FOUND_MESSAGE);
+  }
+
+  revalidateMapViews();
+  return success("Building removed successfully.");
 }
 
 export async function updateDispenser(

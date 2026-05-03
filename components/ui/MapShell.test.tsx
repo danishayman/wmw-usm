@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import MapShell from "@/components/ui/MapShell";
 import type { Building, DispenserListEntry } from "@/lib/types";
 
@@ -9,20 +9,29 @@ vi.mock("next/dynamic", () => ({
       dispenserEntries: DispenserListEntry[];
       selectedDispenserId: string | null;
       nearestBuildingId: string | null;
+      isDesktopSidebarCollapsed: boolean;
       onDispenserSelect: (dispenserId: string) => void;
       onUserLocationChange: (location: { lat: number; lng: number } | null) => void;
     }) => (
       <div
         data-testid="mock-map"
         data-dispenser-count={String(props.dispenserEntries.length)}
+        data-first-dispenser-id={props.dispenserEntries[0]?.dispenserId ?? ""}
         data-selected-dispenser-id={props.selectedDispenserId ?? ""}
         data-nearest-building-id={props.nearestBuildingId ?? ""}
+        data-desktop-collapsed={String(props.isDesktopSidebarCollapsed)}
       >
         <button
           type="button"
           onClick={() => props.onUserLocationChange({ lat: 5.35619, lng: 100.29925 })}
         >
           Set user location
+        </button>
+        <button
+          type="button"
+          onClick={() => props.onUserLocationChange({ lat: 5.35781, lng: 100.30179 })}
+        >
+          Set user location near library
         </button>
         <button type="button" onClick={() => props.onDispenserSelect("dsp-2")}>
           Select marker dispenser two
@@ -83,6 +92,10 @@ const BUILDINGS: Building[] = [
 describe("MapShell dispenser list and map sync", () => {
   afterEach(() => {
     cleanup();
+  });
+
+  beforeEach(() => {
+    window.localStorage.clear();
   });
 
   beforeAll(() => {
@@ -150,5 +163,44 @@ describe("MapShell dispenser list and map sync", () => {
     });
 
     expect(screen.getByTestId("mock-map")).toHaveAttribute("data-selected-dispenser-id", "");
+  });
+
+  it("passes desktop sidebar collapse state to map", () => {
+    render(<MapShell buildings={BUILDINGS} />);
+
+    const map = screen.getByTestId("mock-map");
+    expect(map).toHaveAttribute("data-desktop-collapsed", "false");
+
+    fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+    expect(map).toHaveAttribute("data-desktop-collapsed", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
+    expect(map).toHaveAttribute("data-desktop-collapsed", "false");
+  });
+
+  it("defaults to building A-Z sort before location is available", () => {
+    render(<MapShell buildings={BUILDINGS} />);
+
+    expect(screen.getAllByLabelText("Sort dispenser list")[0]).toHaveValue("building_asc");
+    expect(screen.getByTestId("mock-map")).toHaveAttribute("data-first-dispenser-id", "dsp-1");
+  });
+
+  it("switches to nearest sort by default after first location fix", () => {
+    render(<MapShell buildings={BUILDINGS} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Set user location near library" }));
+
+    expect(screen.getAllByLabelText("Sort dispenser list")[0]).toHaveValue("nearest");
+    expect(screen.getByTestId("mock-map")).toHaveAttribute("data-first-dispenser-id", "dsp-2");
+  });
+
+  it("restores persisted sort mode and keeps it after location updates", () => {
+    window.localStorage.setItem("wmw:dispenser-sort-mode", "building_asc");
+    render(<MapShell buildings={BUILDINGS} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Set user location near library" }));
+
+    expect(screen.getAllByLabelText("Sort dispenser list")[0]).toHaveValue("building_asc");
+    expect(screen.getByTestId("mock-map")).toHaveAttribute("data-first-dispenser-id", "dsp-1");
   });
 });

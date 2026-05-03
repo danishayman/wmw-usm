@@ -91,7 +91,10 @@ export default function DispenserImageSlider({
         <>
           <button
             type="button"
-            onClick={goToPrevious}
+            onClick={(event) => {
+              event.stopPropagation();
+              goToPrevious();
+            }}
             aria-label="Previous dispenser image"
             className="absolute top-1/2 left-2 -translate-y-1/2 rounded-full border border-[#d8cdea] bg-white/90 p-1 text-[#4a2d76] transition hover:bg-white"
           >
@@ -99,7 +102,10 @@ export default function DispenserImageSlider({
           </button>
           <button
             type="button"
-            onClick={goToNext}
+            onClick={(event) => {
+              event.stopPropagation();
+              goToNext();
+            }}
             aria-label="Next dispenser image"
             className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full border border-[#d8cdea] bg-white/90 p-1 text-[#4a2d76] transition hover:bg-white"
           >
@@ -113,7 +119,10 @@ export default function DispenserImageSlider({
               <button
                 key={`${alt}:${index}`}
                 type="button"
-                onClick={() => setActiveIndex(index)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setActiveIndex(index);
+                }}
                 aria-label={`View dispenser image ${index + 1}`}
                 className={`pointer-events-auto h-1.5 w-1.5 rounded-full transition ${
                   index === currentIndex ? "bg-white" : "bg-white/55"

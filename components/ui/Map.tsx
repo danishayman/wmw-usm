@@ -24,6 +24,7 @@ interface MapProps {
   dispenserEntries: DispenserListEntry[];
   selectedDispenserId: string | null;
   nearestBuildingId: string | null;
+  isDesktopSidebarCollapsed: boolean;
   userLocation: LatLng | null;
   onUserLocationChange: (location: LatLng | null) => void;
   onDispenserSelect: (dispenserId: string) => void;
@@ -146,6 +147,7 @@ export default function Map({
   dispenserEntries,
   selectedDispenserId,
   nearestBuildingId,
+  isDesktopSidebarCollapsed,
   userLocation,
   onUserLocationChange,
   onDispenserSelect,
@@ -313,9 +315,9 @@ export default function Map({
             >
               {buildingEntries.length > 0 && (
                 <Popup closeButton={false} offset={[0, -10]}>
-                  <div className="w-[16rem] space-y-2 py-1">
-                    <h3 className="text-sm font-bold text-[#2f1d4f]">{building.name}</h3>
-                    <div className="space-y-1.5">
+                  <div className="w-[13.5rem] space-y-1 py-0.5">
+                    <h3 className="text-[13px] leading-snug font-bold text-[#2f1d4f]">{building.name}</h3>
+                    <div className="space-y-1">
                       {buildingEntries.map((entry) => {
                         const isSelected = selectedDispenserId === entry.dispenserId;
 
@@ -324,18 +326,36 @@ export default function Map({
                             key={entry.dispenserId}
                             type="button"
                             onClick={() => onDispenserSelect(entry.dispenserId)}
-                            className={`w-full rounded-lg border px-2.5 py-2 text-left text-xs transition ${
+                            className={`w-full rounded-md border px-2 py-1.5 text-left text-[11px] leading-tight transition ${
                               isSelected
                                 ? "border-[#b88ce2] bg-[#f6efff] text-[#351f58]"
                                 : "border-[#e2d8f0] bg-white text-[#4a3a66] hover:border-[#c5ade5]"
                             }`}
                           >
-                            <p className="font-semibold">{entry.locationDescription}</p>
-                            {entry.floor && (
-                              <p className="mt-0.5 text-[11px] font-semibold text-[#6f5b8a]">
-                                {entry.floor}
-                              </p>
-                            )}
+                            <div className="flex items-start gap-1.5">
+                              {isDesktopSidebarCollapsed && (
+                                entry.imageUrls[0] ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={entry.imageUrls[0]}
+                                    alt={`${entry.locationDescription} dispenser`}
+                                    className="h-10 w-10 shrink-0 rounded-md border border-[#e2d8f0] object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-dashed border-[#d8cdea] bg-[#f8f3ff] text-[8px] font-bold tracking-wide text-[#6c5f84] uppercase">
+                                    No image
+                                  </div>
+                                )
+                              )}
+                              <div className="min-w-0">
+                                <p className="text-[12px] leading-snug font-semibold">{entry.locationDescription}</p>
+                                {entry.floor && (
+                                  <p className="mt-0.5 text-[10px] font-semibold text-[#6f5b8a]">
+                                    {entry.floor}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           </button>
                         );
                       })}
