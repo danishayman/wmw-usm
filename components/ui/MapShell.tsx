@@ -3,9 +3,10 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Info, X } from "lucide-react";
-import type { Building } from "@/lib/types";
+import DispenserList from "@/components/ui/DispenserList";
+import { buildDispenserListEntries, filterDispenserListEntries } from "@/lib/dispenser-list";
 import { findNearestBuildingWithDispenser } from "@/lib/nearest";
-import Sidebar from "@/components/ui/Sidebar";
+import type { Building } from "@/lib/types";
 
 const Map = dynamic(() => import("@/components/ui/Map"), {
   ssr: false,
@@ -18,11 +19,19 @@ interface MapShellProps {
 const FEEDBACK_FORM_URL = "https://forms.gle/A1aCaxL8UdDp7yod8";
 
 export default function MapShell({ buildings }: MapShellProps) {
-  const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
+  const [selectedDispenserId, setSelectedDispenserId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
+  const hasAutoCenteredNearestRef = useRef(false);
   const infoPanelId = useId();
   const infoControlRef = useRef<HTMLDivElement | null>(null);
+  const dispenserEntries = useMemo(() => buildDispenserListEntries(buildings), [buildings]);
+  const filteredDispenserEntries = useMemo(
+    () => filterDispenserListEntries(dispenserEntries, searchQuery),
+    [dispenserEntries, searchQuery]
+  );
   const nearestBuilding = useMemo(
     () => findNearestBuildingWithDispenser(userLocation, buildings),
     [buildings, userLocation]
@@ -34,6 +43,55 @@ export default function MapShell({ buildings }: MapShellProps) {
     nearestBuilding && Number.isFinite(nearestBuilding.distanceMeters)
       ? Math.max(1, Math.round(nearestBuilding.distanceMeters))
       : null;
+
+  const visibleSelectedDispenserId = useMemo(() => {
+    if (!selectedDispenserId) {
+      return null;
+    }
+
+    return filteredDispenserEntries.some((entry) => entry.dispenserId === selectedDispenserId)
+      ? selectedDispenserId
+      : null;
+  }, [filteredDispenserEntries, selectedDispenserId]);
+
+  const handleSearchQueryChange = (value: string) => {
+    setSearchQuery(value);
+
+    if (!selectedDispenserId) {
+      return;
+    }
+
+    const nextFilteredEntries = filterDispenserListEntries(dispenserEntries, value);
+    const isSelectedVisible = nextFilteredEntries.some(
+      (entry) => entry.dispenserId === selectedDispenserId
+    );
+    if (!isSelectedVisible) {
+      setSelectedDispenserId(null);
+    }
+  };
+
+  const handleUserLocationChange = (location: { lat: number; lng: number } | null) => {
+    setUserLocation(location);
+
+    if (!location || selectedDispenserId || hasAutoCenteredNearestRef.current) {
+      return;
+    }
+
+    const nearest = findNearestBuildingWithDispenser(location, buildings);
+    if (!nearest) {
+      return;
+    }
+
+    const nearestEntry = filteredDispenserEntries.find(
+      (entry) => entry.buildingId === nearest.buildingId
+    );
+    if (!nearestEntry) {
+      return;
+    }
+
+    hasAutoCenteredNearestRef.current = true;
+    setSelectedDispenserId(nearestEntry.dispenserId);
+  };
 
   useEffect(() => {
     if (!isInfoOpen) {
@@ -114,7 +172,7 @@ export default function MapShell({ buildings }: MapShellProps) {
             </div>
 
             <p className="mt-3 text-sm leading-relaxed font-semibold text-[#4a3a66]">
-              "Where&apos;s My Water?" helps people find water refill stations across USM Main
+              &quot;Where&apos;s My Water?&quot; helps people find water refill stations across USM Main
               Campus. All water dispenser locations are added manually. Help us find more dispensers in USM!
             </p>
             
@@ -152,20 +210,28 @@ export default function MapShell({ buildings }: MapShellProps) {
           </div>
         </div>
       )}
-      <Sidebar
-        key={selectedBuilding?.id ?? "sidebar-empty"}
-        building={selectedBuilding}
-        userLocation={userLocation}
-        onClose={() => setSelectedBuilding(null)}
+      <DispenserList
+        entries={filteredDispenserEntries}
+        selectedDispenserId={visibleSelectedDispenserId}
+        searchQuery={searchQuery}
+        onSearchQueryChange={handleSearchQueryChange}
+        onSelectDispenser={setSelectedDispenserId}
+        isDesktopCollapsed={isDesktopSidebarCollapsed}
+        onToggleDesktopCollapsed={() =>
+          setIsDesktopSidebarCollapsed((currentValue) => !currentValue)
+        }
       />
-      <div className="absolute inset-0 z-0">
+      <div
+        className={`absolute inset-0 z-0 transition-[padding] duration-300 ease-out ${isDesktopSidebarCollapsed ? "md:pl-0" : "md:pl-[26rem]"}`}
+      >
         <Map
           buildings={buildings}
-          selectedBuildingId={selectedBuilding?.id ?? null}
+          dispenserEntries={filteredDispenserEntries}
+          selectedDispenserId={visibleSelectedDispenserId}
           nearestBuildingId={nearestBuilding?.buildingId ?? null}
-          onBuildingSelect={setSelectedBuilding}
           userLocation={userLocation}
-          onUserLocationChange={setUserLocation}
+          onUserLocationChange={handleUserLocationChange}
+          onDispenserSelect={setSelectedDispenserId}
         />
       </div>
     </>

@@ -1,19 +1,32 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { MapContainer, Marker, TileLayer, useMap, ZoomControl } from "react-leaflet";
-import { DivIcon, type LatLngBoundsExpression, type Map as LeafletMap } from "leaflet";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  MapContainer,
+  Marker,
+  Popup,
+  TileLayer,
+  ZoomControl,
+  useMap,
+} from "react-leaflet";
+import {
+  DivIcon,
+  type LatLngBoundsExpression,
+  type Map as LeafletMap,
+  type Marker as LeafletMarker,
+} from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { haversineDistanceMeters } from "@/lib/nearest";
-import type { Building, LatLng } from "@/lib/types";
+import type { Building, DispenserListEntry, LatLng } from "@/lib/types";
 
 interface MapProps {
   buildings: Building[];
-  onBuildingSelect: (building: Building) => void;
-  selectedBuildingId: string | null;
+  dispenserEntries: DispenserListEntry[];
+  selectedDispenserId: string | null;
   nearestBuildingId: string | null;
   userLocation: LatLng | null;
   onUserLocationChange: (location: LatLng | null) => void;
+  onDispenserSelect: (dispenserId: string) => void;
 }
 
 const USM_CENTER: [number, number] = [5.356174000404129, 100.2989353671396];
@@ -34,13 +47,11 @@ const GEOLOCATION_OPTIONS: PositionOptions = {
 };
 
 function MapController({
-  buildings,
-  selectedBuildingId,
+  selectedEntry,
   userLocation,
   onMapReady,
 }: {
-  buildings: Building[];
-  selectedBuildingId: string | null;
+  selectedEntry: DispenserListEntry | null;
   userLocation: LatLng | null;
   onMapReady: (map: LeafletMap) => void;
 }) {
@@ -51,32 +62,29 @@ function MapController({
   }, [map, onMapReady]);
 
   useEffect(() => {
-    if (selectedBuildingId) {
-      const selected = buildings.find((building) => building.id === selectedBuildingId);
-      if (selected) {
-        const targetPosition: [number, number] = [selected.latitude, selected.longitude];
+    if (selectedEntry) {
+      const targetPosition: [number, number] = [selectedEntry.latitude, selectedEntry.longitude];
 
-        if (window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px)`).matches) {
-          const mapSize = map.getSize();
-          const markerPoint = map.project(targetPosition, MAP_MAX_ZOOM);
-          const targetScreenY = mapSize.y * MOBILE_FOCUS_Y_RATIO;
-          const yOffsetFromCenter = targetScreenY - mapSize.y / 2;
-          const adjustedCenterPoint = markerPoint.subtract([0, yOffsetFromCenter]);
-          const adjustedCenter = map.unproject(adjustedCenterPoint, MAP_MAX_ZOOM);
+      if (window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px)`).matches) {
+        const mapSize = map.getSize();
+        const markerPoint = map.project(targetPosition, MAP_MAX_ZOOM);
+        const targetScreenY = mapSize.y * MOBILE_FOCUS_Y_RATIO;
+        const yOffsetFromCenter = targetScreenY - mapSize.y / 2;
+        const adjustedCenterPoint = markerPoint.subtract([0, yOffsetFromCenter]);
+        const adjustedCenter = map.unproject(adjustedCenterPoint, MAP_MAX_ZOOM);
 
-          map.flyTo(adjustedCenter, MAP_MAX_ZOOM, { duration: 1.5 });
-          return;
-        }
-
-        map.flyTo(targetPosition, MAP_MAX_ZOOM, { duration: 1.5 });
+        map.flyTo(adjustedCenter, MAP_MAX_ZOOM, { duration: 1.5 });
         return;
       }
+
+      map.flyTo(targetPosition, MAP_MAX_ZOOM, { duration: 1.5 });
+      return;
     }
 
     if (!userLocation) {
       map.flyTo(USM_CENTER, MAP_MIN_ZOOM, { duration: 1.5 });
     }
-  }, [buildings, map, selectedBuildingId, userLocation]);
+  }, [map, selectedEntry, userLocation]);
 
   return null;
 }
@@ -135,11 +143,12 @@ function createIcon(isSelected: boolean, isNearest: boolean) {
 
 export default function Map({
   buildings,
-  onBuildingSelect,
-  selectedBuildingId,
+  dispenserEntries,
+  selectedDispenserId,
   nearestBuildingId,
   userLocation,
   onUserLocationChange,
+  onDispenserSelect,
 }: MapProps) {
   const [mapInstance, setMapInstance] = useState<LeafletMap | null>(null);
   const geolocationWatchIdRef = useRef<number | null>(null);
@@ -147,6 +156,46 @@ export default function Map({
   const lastAcceptedTimestampRef = useRef<number | null>(null);
   const hasCenteredOnUserRef = useRef(false);
   const hasShownGeolocationErrorRef = useRef(false);
+  const markerRefs = useRef<Record<string, LeafletMarker | null>>({});
+
+  const entriesByBuildingId = useMemo(() => {
+    const groups: Record<string, DispenserListEntry[]> = {};
+
+    for (const entry of dispenserEntries) {
+      if (!groups[entry.buildingId]) {
+        groups[entry.buildingId] = [];
+      }
+
+      groups[entry.buildingId].push(entry);
+    }
+
+    return groups;
+  }, [dispenserEntries]);
+
+  const visibleBuildingIds = useMemo(
+    () => new Set(dispenserEntries.map((entry) => entry.buildingId)),
+    [dispenserEntries]
+  );
+  const visibleBuildings = useMemo(
+    () => buildings.filter((building) => visibleBuildingIds.has(building.id)),
+    [buildings, visibleBuildingIds]
+  );
+  const selectedEntry = useMemo(
+    () =>
+      selectedDispenserId
+        ? dispenserEntries.find((entry) => entry.dispenserId === selectedDispenserId) ?? null
+        : null,
+    [dispenserEntries, selectedDispenserId]
+  );
+  const selectedBuildingId = selectedEntry?.buildingId ?? null;
+
+  useEffect(() => {
+    if (!selectedBuildingId) {
+      return;
+    }
+
+    markerRefs.current[selectedBuildingId]?.openPopup();
+  }, [selectedBuildingId]);
 
   useEffect(() => {
     if (!mapInstance) {
@@ -233,22 +282,70 @@ export default function Map({
         <TileLayer url="/new_tiles/{z}/{x}/{y}.png" maxZoom={MAP_MAX_ZOOM} />
         <ZoomControl position="bottomright" />
         <MapController
-          buildings={buildings}
-          selectedBuildingId={selectedBuildingId}
+          selectedEntry={selectedEntry}
           userLocation={userLocation}
           onMapReady={setMapInstance}
         />
 
-        {buildings.map((building) => (
-          <Marker
-            key={building.id}
-            position={[building.latitude, building.longitude]}
-            icon={createIcon(selectedBuildingId === building.id, nearestBuildingId === building.id)}
-            eventHandlers={{
-              click: () => onBuildingSelect(building),
-            }}
-          />
-        ))}
+        {visibleBuildings.map((building) => {
+          const buildingEntries = entriesByBuildingId[building.id] ?? [];
+
+          return (
+            <Marker
+              key={building.id}
+              position={[building.latitude, building.longitude]}
+              icon={createIcon(selectedBuildingId === building.id, nearestBuildingId === building.id)}
+              ref={(marker) => {
+                markerRefs.current[building.id] = marker;
+              }}
+              eventHandlers={{
+                click: () => {
+                  if (buildingEntries.length === 0) {
+                    return;
+                  }
+
+                  const matchSelected = buildingEntries.find(
+                    (entry) => entry.dispenserId === selectedDispenserId
+                  );
+                  onDispenserSelect((matchSelected ?? buildingEntries[0]).dispenserId);
+                },
+              }}
+            >
+              {buildingEntries.length > 0 && (
+                <Popup closeButton={false} offset={[0, -10]}>
+                  <div className="w-[16rem] space-y-2 py-1">
+                    <h3 className="text-sm font-bold text-[#2f1d4f]">{building.name}</h3>
+                    <div className="space-y-1.5">
+                      {buildingEntries.map((entry) => {
+                        const isSelected = selectedDispenserId === entry.dispenserId;
+
+                        return (
+                          <button
+                            key={entry.dispenserId}
+                            type="button"
+                            onClick={() => onDispenserSelect(entry.dispenserId)}
+                            className={`w-full rounded-lg border px-2.5 py-2 text-left text-xs transition ${
+                              isSelected
+                                ? "border-[#b88ce2] bg-[#f6efff] text-[#351f58]"
+                                : "border-[#e2d8f0] bg-white text-[#4a3a66] hover:border-[#c5ade5]"
+                            }`}
+                          >
+                            <p className="font-semibold">{entry.locationDescription}</p>
+                            {entry.floor && (
+                              <p className="mt-0.5 text-[11px] font-semibold text-[#6f5b8a]">
+                                {entry.floor}
+                              </p>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </Popup>
+              )}
+            </Marker>
+          );
+        })}
 
         {userLocation && (
           <Marker

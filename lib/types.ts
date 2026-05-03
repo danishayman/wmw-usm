@@ -42,6 +42,21 @@ export interface Building {
   dispensers: Dispenser[];
 }
 
+export interface DispenserListEntry {
+  dispenserId: string;
+  buildingId: string;
+  buildingName: string;
+  latitude: number;
+  longitude: number;
+  locationDescription: string;
+  floor: string | null;
+  shortDescription: string | null;
+  brand: string;
+  coldWaterStatus: ColdWaterStatus;
+  maintenanceStatus: MaintenanceStatus;
+  imageUrls: string[];
+}
+
 export interface NearestBuildingResult {
   buildingId: string;
   distanceMeters: number;

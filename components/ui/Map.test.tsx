@@ -1,10 +1,11 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { forwardRef, type ReactNode, useEffect } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import Map from "@/components/ui/Map";
-import type { Building } from "@/lib/types";
+import type { Building, DispenserListEntry } from "@/lib/types";
 
 const flyToMock = vi.fn();
+const openPopupMock = vi.fn();
 const watchPositionMock = vi.fn();
 const clearWatchMock = vi.fn();
 const GEOLOCATION_WATCH_ID = 91;
@@ -31,20 +32,40 @@ vi.mock("react-leaflet", () => ({
   MapContainer: ({ children }: { children: ReactNode }) => (
     <div data-testid="map-container">{children}</div>
   ),
-  Marker: ({
-    icon,
-    position,
-  }: {
-    icon?: { options?: { html?: string } };
-    position: [number, number];
-  }) => (
-    <div
-      data-testid={`marker-${position[0]}-${position[1]}`}
-      data-icon-html={icon?.options?.html ?? ""}
-    />
-  ),
+  Marker: forwardRef(function MockMarker(
+    props: {
+      icon?: { options?: { html?: string } };
+      position: [number, number];
+      eventHandlers?: { click?: () => void };
+      children?: ReactNode;
+    },
+    ref: ((instance: { openPopup: () => void } | null) => void) | null
+  ) {
+    useEffect(() => {
+      if (typeof ref === "function") {
+        ref({ openPopup: openPopupMock });
+      }
+
+      return () => {
+        if (typeof ref === "function") {
+          ref(null);
+        }
+      };
+    }, [ref]);
+
+    return (
+      <div
+        data-testid={`marker-${props.position[0]}-${props.position[1]}`}
+        data-icon-html={props.icon?.options?.html ?? ""}
+        onClick={props.eventHandlers?.click}
+      >
+        {props.children}
+      </div>
+    );
+  }),
   TileLayer: () => <div data-testid="tile-layer" />,
   ZoomControl: () => <div data-testid="zoom-control" />,
+  Popup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   useMap: () => mockedLeafletMap,
 }));
 
@@ -62,6 +83,8 @@ const BUILDINGS: Building[] = [
         brand: "Coway",
         coldWaterStatus: "Available",
         maintenanceStatus: "Operational",
+        imagePaths: [],
+        imageUrls: [],
       },
     ],
   },
@@ -78,8 +101,41 @@ const BUILDINGS: Building[] = [
         brand: "Cuckoo",
         coldWaterStatus: "Available",
         maintenanceStatus: "Operational",
+        imagePaths: [],
+        imageUrls: [],
       },
     ],
+  },
+];
+
+const ENTRIES: DispenserListEntry[] = [
+  {
+    dispenserId: "dsp-1",
+    buildingId: "bld-1",
+    buildingName: "School of Computer Sciences",
+    latitude: 5.3562,
+    longitude: 100.2992,
+    locationDescription: "Pantry",
+    floor: null,
+    shortDescription: null,
+    brand: "Coway",
+    coldWaterStatus: "Available",
+    maintenanceStatus: "Operational",
+    imageUrls: [],
+  },
+  {
+    dispenserId: "dsp-2",
+    buildingId: "bld-2",
+    buildingName: "Library",
+    latitude: 5.3574,
+    longitude: 100.3015,
+    locationDescription: "Ground Floor",
+    floor: "Ground Floor",
+    shortDescription: null,
+    brand: "Cuckoo",
+    coldWaterStatus: "Available",
+    maintenanceStatus: "Operational",
+    imageUrls: [],
   },
 ];
 
@@ -143,6 +199,7 @@ describe("Map marker nearest-state rendering", () => {
 
   beforeEach(() => {
     flyToMock.mockClear();
+    openPopupMock.mockClear();
     watchPositionMock.mockReset();
     clearWatchMock.mockReset();
     geolocationSuccessHandler = null;
@@ -157,8 +214,9 @@ describe("Map marker nearest-state rendering", () => {
     render(
       <Map
         buildings={BUILDINGS}
-        onBuildingSelect={vi.fn()}
-        selectedBuildingId={null}
+        dispenserEntries={ENTRIES}
+        onDispenserSelect={vi.fn()}
+        selectedDispenserId={null}
         nearestBuildingId="bld-1"
         userLocation={{ lat: 5.3561, lng: 100.2991 }}
         onUserLocationChange={vi.fn()}
@@ -172,31 +230,77 @@ describe("Map marker nearest-state rendering", () => {
     expect(regularMarker.getAttribute("data-icon-html")).not.toContain("rgba(13,148,136,0.95)");
   });
 
-  it("keeps both selected and nearest visual cues when a marker is both", () => {
+  it("highlights selected marker when dispenser is selected", () => {
     render(
       <Map
         buildings={BUILDINGS}
-        onBuildingSelect={vi.fn()}
-        selectedBuildingId="bld-1"
-        nearestBuildingId="bld-1"
+        dispenserEntries={ENTRIES}
+        onDispenserSelect={vi.fn()}
+        selectedDispenserId="dsp-1"
+        nearestBuildingId={null}
         userLocation={{ lat: 5.3561, lng: 100.2991 }}
         onUserLocationChange={vi.fn()}
       />
     );
 
-    const combinedMarker = screen.getByTestId("marker-5.3562-100.2992");
-    const html = combinedMarker.getAttribute("data-icon-html") ?? "";
+    const selectedMarker = screen.getByTestId("marker-5.3562-100.2992");
+    const html = selectedMarker.getAttribute("data-icon-html") ?? "";
 
-    expect(html).toContain("rgba(13,148,136,0.95)");
     expect(html).toContain("#EB8423");
+  });
+
+  it("shows only markers for visible filtered buildings", () => {
+    render(
+      <Map
+        buildings={BUILDINGS}
+        dispenserEntries={[ENTRIES[0]]}
+        onDispenserSelect={vi.fn()}
+        selectedDispenserId={null}
+        nearestBuildingId={null}
+        userLocation={null}
+        onUserLocationChange={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("marker-5.3562-100.2992")).toBeInTheDocument();
+    expect(screen.queryByTestId("marker-5.3574-100.3015")).not.toBeInTheDocument();
+  });
+
+  it("opens popup when selected dispenser changes", () => {
+    const { rerender } = render(
+      <Map
+        buildings={BUILDINGS}
+        dispenserEntries={ENTRIES}
+        onDispenserSelect={vi.fn()}
+        selectedDispenserId={null}
+        nearestBuildingId={null}
+        userLocation={null}
+        onUserLocationChange={vi.fn()}
+      />
+    );
+
+    rerender(
+      <Map
+        buildings={BUILDINGS}
+        dispenserEntries={ENTRIES}
+        onDispenserSelect={vi.fn()}
+        selectedDispenserId="dsp-1"
+        nearestBuildingId={null}
+        userLocation={null}
+        onUserLocationChange={vi.fn()}
+      />
+    );
+
+    expect(openPopupMock).toHaveBeenCalled();
   });
 
   it("starts geolocation watch when map is ready", () => {
     render(
       <Map
         buildings={BUILDINGS}
-        onBuildingSelect={vi.fn()}
-        selectedBuildingId={null}
+        dispenserEntries={ENTRIES}
+        onDispenserSelect={vi.fn()}
+        selectedDispenserId={null}
         nearestBuildingId={null}
         userLocation={null}
         onUserLocationChange={vi.fn()}
@@ -210,8 +314,9 @@ describe("Map marker nearest-state rendering", () => {
     const { unmount } = render(
       <Map
         buildings={BUILDINGS}
-        onBuildingSelect={vi.fn()}
-        selectedBuildingId={null}
+        dispenserEntries={ENTRIES}
+        onDispenserSelect={vi.fn()}
+        selectedDispenserId={null}
         nearestBuildingId={null}
         userLocation={null}
         onUserLocationChange={vi.fn()}
@@ -232,8 +337,9 @@ describe("Map marker nearest-state rendering", () => {
     render(
       <Map
         buildings={BUILDINGS}
-        onBuildingSelect={vi.fn()}
-        selectedBuildingId={null}
+        dispenserEntries={ENTRIES}
+        onDispenserSelect={vi.fn()}
+        selectedDispenserId={null}
         nearestBuildingId={null}
         userLocation={null}
         onUserLocationChange={onUserLocationChange}
@@ -246,7 +352,7 @@ describe("Map marker nearest-state rendering", () => {
 
     expect(onUserLocationChange).toHaveBeenCalledTimes(1);
     expect(flyToMock.mock.calls.length).toBe(flyToCountBeforeFirstFix + 1);
-    expect(flyToMock).toHaveBeenLastCalledWith([5.3561, 100.2991], 19, { duration: 1.2 });
+    expect(flyToMock).toHaveBeenCalledWith([5.3561, 100.2991], 20, { duration: 1.2 });
 
     nowSpy.mockRestore();
   });
@@ -260,8 +366,9 @@ describe("Map marker nearest-state rendering", () => {
     render(
       <Map
         buildings={BUILDINGS}
-        onBuildingSelect={vi.fn()}
-        selectedBuildingId={null}
+        dispenserEntries={ENTRIES}
+        onDispenserSelect={vi.fn()}
+        selectedDispenserId={null}
         nearestBuildingId={null}
         userLocation={null}
         onUserLocationChange={onUserLocationChange}
@@ -285,8 +392,9 @@ describe("Map marker nearest-state rendering", () => {
     render(
       <Map
         buildings={BUILDINGS}
-        onBuildingSelect={vi.fn()}
-        selectedBuildingId={null}
+        dispenserEntries={ENTRIES}
+        onDispenserSelect={vi.fn()}
+        selectedDispenserId={null}
         nearestBuildingId={null}
         userLocation={null}
         onUserLocationChange={onUserLocationChange}
@@ -310,8 +418,9 @@ describe("Map marker nearest-state rendering", () => {
     render(
       <Map
         buildings={BUILDINGS}
-        onBuildingSelect={vi.fn()}
-        selectedBuildingId={null}
+        dispenserEntries={ENTRIES}
+        onDispenserSelect={vi.fn()}
+        selectedDispenserId={null}
         nearestBuildingId={null}
         userLocation={null}
         onUserLocationChange={onUserLocationChange}
@@ -336,8 +445,9 @@ describe("Map marker nearest-state rendering", () => {
     render(
       <Map
         buildings={BUILDINGS}
-        onBuildingSelect={vi.fn()}
-        selectedBuildingId={null}
+        dispenserEntries={ENTRIES}
+        onDispenserSelect={vi.fn()}
+        selectedDispenserId={null}
         nearestBuildingId={null}
         userLocation={null}
         onUserLocationChange={onUserLocationChange}
