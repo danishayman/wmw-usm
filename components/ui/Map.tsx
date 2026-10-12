@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, Marker, TileLayer, useMap, ZoomControl } from "react-leaflet";
-import { DivIcon, type LatLngBoundsExpression, type Map as LeafletMap } from "leaflet";
+import { DivIcon, type Map as LeafletMap } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { haversineDistanceMeters } from "@/lib/nearest";
 import type { Building, LatLng } from "@/lib/types";
