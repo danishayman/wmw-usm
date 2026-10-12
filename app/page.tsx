@@ -8,7 +8,7 @@ export default async function HomePage() {
   const buildings = await getBuildings();
 
   return (
-    <main className="relative h-screen min-h-[100svh] w-screen overflow-hidden bg-background">
+    <main className="relative h-[100dvh] min-h-[100dvh] w-screen overflow-hidden bg-background">
       <div className="relative h-full w-full overflow-hidden">
         <header className="pointer-events-none absolute top-2.5 left-1/2 z-[1000] w-[min(93vw,38rem)] -translate-x-1/2 md:top-4">
           <div className="fade-in-up origin-top scale-[0.88] rounded-2xl border border-[#c8b8dd] bg-white/96 px-3 py-2.5 shadow-[0_16px_34px_-28px_rgba(67,26,124,0.8)] sm:scale-95 md:scale-100 md:px-4 md:py-3">
