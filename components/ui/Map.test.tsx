@@ -246,7 +246,7 @@ describe("Map marker nearest-state rendering", () => {
 
     expect(onUserLocationChange).toHaveBeenCalledTimes(1);
     expect(flyToMock.mock.calls.length).toBe(flyToCountBeforeFirstFix + 1);
-    expect(flyToMock).toHaveBeenLastCalledWith([5.3561, 100.2991], 19, { duration: 1.2 });
+    expect(flyToMock).toHaveBeenLastCalledWith([5.3561, 100.2991], 20, { duration: 1.2 });
 
     nowSpy.mockRestore();
   });
@@ -354,5 +354,33 @@ describe("Map marker nearest-state rendering", () => {
     expect(flyToMock.mock.calls.length).toBe(flyToCountAfterFirstFix);
 
     nowSpy.mockRestore();
+  });
+
+  it("does not re-center on the selected building when the user location changes", () => {
+    const props = {
+      buildings: BUILDINGS,
+      onBuildingSelect: vi.fn(),
+      selectedBuildingId: "bld-1",
+      nearestBuildingId: null,
+      onUserLocationChange: vi.fn(),
+    };
+    const { rerender } = render(<Map {...props} userLocation={{ lat: 5.3561, lng: 100.2991 }} />);
+
+    const flyToCountAfterSelection = flyToMock.mock.calls.length;
+
+    rerender(<Map {...props} userLocation={{ lat: 5.3565, lng: 100.2995 }} />);
+    rerender(<Map {...props} userLocation={{ lat: 5.3569, lng: 100.2999 }} />);
+
+    expect(flyToMock.mock.calls.length).toBe(flyToCountAfterSelection);
+
+    rerender(
+      <Map
+        {...props}
+        selectedBuildingId="bld-2"
+        userLocation={{ lat: 5.3569, lng: 100.2999 }}
+      />
+    );
+
+    expect(flyToMock.mock.calls.length).toBe(flyToCountAfterSelection + 1);
   });
 });
